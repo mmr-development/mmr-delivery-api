@@ -1,0 +1,35 @@
+{
+  "scripts": {
+    "clean": "rimraf ./dist",
+    "build": "npm run clean && tsc -p tsconfig.json",
+    "start:dev": "ts-node-dev --respawn --transpile-only --env-file .env ./src/server.ts",
+    "migrate:latest": "node --env-file .env ./dist/scripts/migrate-to-latest.js",
+    "migrate:down": "node ./dist/scripts/migrate-down.js",
+    "migrate:create": "node ./scripts/migrate-create.ts",
+    "test": "node --test --require ts-node/register/transpile-only test/**/*.test.ts"
+  },
+  "dependencies": {
+    "@fastify/autoload": "^6.3.0",
+    "@fastify/jwt": "^9.1.0",
+    "@fastify/redis": "^7.0.2",
+    "argon2": "^0.41.1",
+    "close-with-grace": "^2.2.0",
+    "fastify": "^5.3.0",
+    "ioredis": "^5.6.1",
+    "jsonwebtoken": "^9.0.2",
+    "kysely": "^0.28.0",
+    "node-jose": "^2.2.0",
+    "pg": "^8.14.1",
+    "pino-pretty": "^13.0.0"
+  },
+  "devDependencies": {
+    "@types/jsonwebtoken": "^9.0.9",
+    "@types/node": "^22.14.1",
+    "@types/node-jose": "^1.1.13",
+    "@types/pg": "^8.11.12",
+    "axios": "^1.8.4",
+    "ts-node": "^10.9.2",
+    "ts-node-dev": "^2.0.0",
+    "typescript": "^5.8.3"
+  }
+}
