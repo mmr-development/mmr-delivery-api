@@ -32,7 +32,7 @@ export default async function buildApp(fastify: FastifyInstance, opts: AppOption
         ),
         authenticationTokenService: createAuthenticationTokenService(createRefreshTokenRepository(db)),
         userService: createUserService(createUserRepository(db)),
-        prefix: '/auth',
+        prefix: '/api/v1',
     })
 
     fastify.register(jwksController, {

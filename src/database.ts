@@ -3,7 +3,7 @@ import { Kysely, PostgresDialect } from 'kysely';
 import { Database } from './types/kysely.types';
 import config from './config';
 
-export function createDatabaseConnection(databaseConfig: {
+function createDatabaseConnection(databaseConfig: {
     database: string;
     host: string;
     user: string;
@@ -32,6 +32,6 @@ export const db = createDatabaseConnection({
     database: config.database.database || 'just_authentication_test',
     host: config.database.host,
     user: config.database.user || 'postgres',
-    password: config.database.password || 'postgres',
+    password: config.database.password || 'admin123',
     port: config.database.port,
 });

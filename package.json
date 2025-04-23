@@ -4,8 +4,8 @@
     "build": "npm run clean && tsc -p tsconfig.json",
     "start:dev": "ts-node-dev --respawn --transpile-only --env-file .env ./src/server.ts",
     "migrate:latest": "node --env-file .env ./dist/scripts/migrate-to-latest.js",
-    "migrate:down": "node ./dist/scripts/migrate-down.js",
-    "migrate:create": "node ./scripts/migrate-create.ts",
+    "migrate:down": "node --env-file .env ./dist/scripts/migrate-down.js",
+    "migrate:create": "node --env-file .env ./scripts/migrate-create.ts",
     "test": "node --test --require ts-node/register/transpile-only test/**/*.test.ts"
   },
   "dependencies": {

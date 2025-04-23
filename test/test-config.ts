@@ -13,12 +13,12 @@ export const testConfig: TestConfig = {
     host: 'localhost',
     database: 'just_authentication_test',
     user: 'postgres',
-    password: 'postgres',
+    password: 'admin123',
   },
   adminDatabase: {
     host: 'localhost',
     database: 'postgres',
     user: 'postgres',
-    password: 'postgres',
+    password: 'admin123',
   },
 }
