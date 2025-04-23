@@ -1,4 +1,4 @@
-import { Database } from '../types/kysely.types';
+import { Database } from '../../types/kysely.types';
 import { Kysely, Transaction } from 'kysely';
 import { InsertableUserRow, UserRow } from './user.table';
 

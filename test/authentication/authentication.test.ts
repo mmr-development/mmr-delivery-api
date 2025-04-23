@@ -2,8 +2,7 @@ import { describe, it, before, after, beforeEach, afterEach } from 'node:test';
 import assert from 'node:assert';
 import * as ctx from '../test-context';
 
-import { User } from '../../src/users/user';
-import { request } from '../test-context';
+import { User } from '../../src/modules/users/user';
 
 describe('Authentication API tests', () => {
   before(ctx.before)
