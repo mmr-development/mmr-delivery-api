@@ -1,3 +1,10 @@
+# Prerequisites
+Before running this application, make sure you have the following installed:
+
+* Node.js (v18 or higher recommended)
+* PostgreSQL
+* Redis
+
 # Installation
 To install all NPM dependencies locally just run:
 ```
