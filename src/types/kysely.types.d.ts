@@ -1,7 +1,7 @@
-import { UserTable } from '../users/user.table';
-import { RefreshTokenTable } from '../authentication/refresh-token.table';
-import { SignInMethodTable } from '../sign-in-method/sign-in-method.table';
-import { PasswordSignInMethodTable } from '../sign-in-method/password-sign-in-method.table';
+import { UserTable } from '../modules/users/user.table';
+import { RefreshTokenTable } from '../modules/authentication/refresh-token.table';
+import { SignInMethodTable } from '../modules/sign-in-method/sign-in-method.table';
+import { PasswordSignInMethodTable } from '../modules/sign-in-method/password-sign-in-method.table';
 
 export interface Database {
     refresh_token: RefreshTokenTable;

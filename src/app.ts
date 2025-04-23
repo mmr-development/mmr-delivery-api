@@ -1,12 +1,12 @@
 import { join } from 'path';
 import { FastifyInstance } from 'fastify';
 import AutoLoad from '@fastify/autoload';
-import { authenticationController, createAuthenticationTokenService, createRefreshTokenRepository } from './authentication';
-import { createSignInMethodService } from './sign-in-method';
-import { jwksController, createJwksService } from './jwks';
-import { createUserRepository } from './users/user.repository';
-import { createUserService } from './users/user.service';
-import { createSignInMethodRepository } from './sign-in-method/sign-in-method.repository';
+import { authenticationController, createAuthenticationTokenService, createRefreshTokenRepository } from './modules/authentication';
+import { createSignInMethodService } from './modules/sign-in-method';
+import { jwksController, createJwksService } from './modules/jwks';
+import { createUserRepository } from './modules/users/user.repository';
+import { createUserService } from './modules/users/user.service';
+import { createSignInMethodRepository } from './modules/sign-in-method/sign-in-method.repository';
 import { Database } from './types/kysely.types';
 import { Kysely } from 'kysely';
 

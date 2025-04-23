@@ -1,5 +1,5 @@
 import { Kysely } from 'kysely';
-import { Database } from '../types/kysely.types';
+import { Database } from '../../types/kysely.types';
 import { RefreshTokenRow, InsertableRefreshTokenRow, UpdateableRefreshTokenRow } from './refresh-token.table';
 
 export interface RefreshTokenRepository {
@@ -11,7 +11,7 @@ export interface RefreshTokenRepository {
 
 export function createRefreshTokenRepository(db: Kysely<Database>): RefreshTokenRepository {
     return {
-        insertRefreshToken: async function (userId: string) {
+        insertRefreshToken: async function (userId: string): Promise<RefreshTokenRow> {
             const [refreshToken] = await db.insertInto('refresh_token')
                 .values({
                     user_id: userId,

@@ -8,9 +8,9 @@ import {
     UserNotFoundError,
     InvalidCredentialsError,
     ControllerError
-} from '../utils/errors';
+} from '../../utils/errors';
 import { Transaction } from 'kysely';
-import { Database } from '../types/kysely.types';
+import { Database } from '../../types/kysely.types';
 import { CreateCustomerUserRequest } from '../users/user';
 
 export class UserAlreadyHasSignInMethodError extends Error {}

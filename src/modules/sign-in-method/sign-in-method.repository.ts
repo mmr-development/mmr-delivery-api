@@ -1,5 +1,5 @@
 import { Kysely, Transaction } from 'kysely';
-import { Database } from '../types/kysely.types';
+import { Database } from '../../types/kysely.types';
 import { InsertablePasswordSignInMethodRow, PasswordSignInMethodRow } from './password-sign-in-method.table'
 
 export interface SignInMethodRepository {

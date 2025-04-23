@@ -1,14 +1,14 @@
 import * as jwt from 'jsonwebtoken';
 import fs from 'fs';
 import path from 'path';
-import config from '../config';
+import config from '../../config';
 import { RefreshTokenRepository } from './refresh-token.repository';
 import * as crypto from 'crypto';
 import { 
     ExpiredAuthTokenError, 
     InvalidCredentialsError, 
     InvalidRefreshTokenError 
-  } from '../utils/errors';
+  } from '../../utils/errors';
 import { Redis } from 'ioredis';
 
 export class AccessTokenError extends Error { }
