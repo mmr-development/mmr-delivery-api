@@ -1,10 +1,11 @@
 import Fastify from 'fastify';
-import buildApp from './app';
-import config from './config';
-import { db } from './database';
+import { buildApp } from './app';
+import { config } from './config';
 import closeWithGrace from 'close-with-grace';
 
-async function run() {
+async function main(customConfig = config) {
+    const config = customConfig;
+
     const server = Fastify({
         logger: {
             transport: {
@@ -13,7 +14,7 @@ async function run() {
         },
     });
 
-    server.register(buildApp, { db });
+    server.register(buildApp, { config });
 
     try {
         await server.listen({ port: config.port, host: config.host });
@@ -31,4 +32,4 @@ async function run() {
     }
 }
 
-run();
+main();

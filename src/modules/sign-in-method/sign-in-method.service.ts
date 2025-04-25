@@ -10,7 +10,7 @@ import {
     ControllerError
 } from '../../utils/errors';
 import { Transaction } from 'kysely';
-import { Database } from '../../types/kysely.types';
+import { Database } from '../../database';
 import { CreateCustomerUserRequest } from '../users/user';
 
 export class UserAlreadyHasSignInMethodError extends Error {}
