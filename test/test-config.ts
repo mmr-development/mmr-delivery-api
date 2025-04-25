@@ -6,19 +6,30 @@ export interface TestConfig extends Config {
 }
 
 export const testConfig: TestConfig = {
+  host: '0.0.0.0',
   port: 8050,
-//   authTokenSecret: 'a498a5cf13a8194a2477f9284df34af3954fad3dc8459e343a',
-  accessTokenExpiryDuration: '2h',
   database: {
     host: 'localhost',
+    port: 5432,
     database: 'just_authentication_test',
     user: 'postgres',
     password: 'postgres',
   },
   adminDatabase: {
     host: 'localhost',
+    port: 5432,
     database: 'postgres',
     user: 'postgres',
     password: 'postgres',
   },
+  redis: {
+    host: 'localhost',
+    port: 6379,
+    password: undefined,
+  },
+  jwt: {
+    algorithm: 'RS256',
+    accessTokenExpiration: 3600, // 1 hour in seconds
+    refreshTokenExpiration: 604800, // 7 days in seconds
+  }
 }

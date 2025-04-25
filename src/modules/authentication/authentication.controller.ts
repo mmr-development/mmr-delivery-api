@@ -20,7 +20,7 @@ export const authenticationController: FastifyPluginAsync<AuthenticationControll
             client_id
         };
 
-        const signedInUser = await request.server.kysely.db.transaction().execute(async (trx) => {
+        const signedInUser = await request.db.transaction().execute(async (trx) => {
             return await signInMethodService.signInUsingPassword(trx, signInMethod);
         });
 
@@ -73,7 +73,7 @@ export const authenticationController: FastifyPluginAsync<AuthenticationControll
             password
         };
 
-        const signedUpUser = await request.server.kysely.db.transaction().execute(async (trx) => {
+        const signedUpUser = await request.db.transaction().execute(async (trx) => {
             return signInMethodService.signUpWithPassword(trx, userRequest);
         });
 

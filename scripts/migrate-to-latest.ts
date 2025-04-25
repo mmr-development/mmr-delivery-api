@@ -14,7 +14,7 @@ async function migrateToLatest() {
   const db = new Kysely<Database>({
     dialect: new PostgresDialect({
       pool: new Pool({
-        database: config.database.name,
+        database: config.database.database,
         host: config.database.host,
         user: config.database.user,
         password: config.database.password,

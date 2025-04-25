@@ -2,19 +2,29 @@ import { ConnectionConfig } from 'pg';
 
 export interface Config {
     readonly port: number;
-    readonly accessTokenExpiryDuration: string;
+    readonly host: string;
+    readonly redis: {
+        readonly host: string;
+        readonly port: number;
+        readonly password?: string;
+    };
+    readonly jwt: {
+        readonly algorithm: string;
+        readonly accessTokenExpiration: number;
+        readonly refreshTokenExpiration: number;
+    };
     readonly database: ConnectionConfig;
 }
 
-export default {
-    host: process.env.HOST,
+export const config: Config = {
+    host: process.env.HOST || 'localhost',
     port: parseInt(process.env.PORT || '3000'),
     database: {
         host: process.env.DB_HOST || 'localhost',
         port: parseInt(process.env.DB_PORT || '5432'),
-        user: process.env.DB_USER,
-        password: process.env.DB_PASSWORD,
-        database: process.env.DB_NAME,
+        user: process.env.DB_USER || 'postgres',
+        password: process.env.DB_PASSWORD || 'postgres',
+        database: process.env.DB_NAME || 'just_authentication_test',
     },
     redis: {
         host: process.env.REDIS_HOST || 'localhost',

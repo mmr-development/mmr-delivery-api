@@ -2,7 +2,7 @@ import { CreateCustomerUserRequest, User } from './user';
 import { UserRepository } from './user.repository';
 import { UserRow } from './user.table';
 import { Kysely, Transaction } from 'kysely'
-import { Database } from '../types/kysely.types';
+import { Database } from '../../database';
 import { SignInMethodService } from '../sign-in-method';
 
 export interface UserService {

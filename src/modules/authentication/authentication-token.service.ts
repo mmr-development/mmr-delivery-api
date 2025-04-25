@@ -1,7 +1,7 @@
 import * as jwt from 'jsonwebtoken';
 import fs from 'fs';
 import path from 'path';
-import config from '../../config';
+import { config } from '../../config';
 import { RefreshTokenRepository } from './refresh-token.repository';
 import * as crypto from 'crypto';
 import { 

@@ -1,5 +1,5 @@
 import { Kysely } from 'kysely';
-import { Database } from '../../types/kysely.types';
+import { Database } from '../../database';
 import { RefreshTokenRow, InsertableRefreshTokenRow, UpdateableRefreshTokenRow } from './refresh-token.table';
 
 export interface RefreshTokenRepository {

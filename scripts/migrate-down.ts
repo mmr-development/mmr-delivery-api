@@ -15,7 +15,7 @@ async function migrateDown() {
     dialect: new PostgresDialect({
       pool: new Pool({
         host: config.database.host,
-        database: config.database.name,
+        database: config.database.database,
         user: config.database.user,
         password: config.database.password,
         port: 5432,
