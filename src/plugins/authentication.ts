@@ -4,6 +4,11 @@ import fastifyJwt from '@fastify/jwt';
 import fs from 'fs';
 import path from 'path';
 import fastifyRedis from '@fastify/redis';
+import { Config } from '../config';
+
+interface AuthenticationPluginOptions {
+    config: Pick<Config, 'redis' | 'jwt'>;
+  }
 
 declare module 'fastify' {
     export interface FastifyInstance {
@@ -29,12 +34,14 @@ declare module '@fastify/jwt' {
 
 const BLACKLIST_PREFIX = 'jwt:blacklist:';
 
-export const authenticationPlugin: FastifyPluginAsync = async function (server) {
+export const authenticationPlugin: FastifyPluginAsync<AuthenticationPluginOptions> = async function (server, opts) {
+    const { config } = opts;
+
     if (!server.redis) {
         server.register(fastifyRedis, {
-            host: process.env.REDIS_HOST || '127.0.0.1',
-            port: Number(process.env.REDIS_PORT) || 6379,
-            password: process.env.REDIS_PASSWORD || '',
+            host: config.redis.host,
+            port: config.redis.port,
+            password: config.redis.password,
         });
     }
 

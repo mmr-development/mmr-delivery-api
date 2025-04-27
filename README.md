@@ -4,6 +4,18 @@ Before running this application, make sure you have the following installed:
 * Node.js (v18 or higher recommended)
 * PostgreSQL
 * Redis
+* Docker (optional, for containerized deployment)
+
+## Generating JWT Keys
+You need a private and public key pair. You can generate them using OpenSSL:
+
+```sh
+# Generate a 2048-bit private key
+openssl genrsa -out path/to/private.pem 2048
+
+# Generate the corresponding public key
+openssl rsa -pubout -in path/to/private.pem -out path/to/public.pem
+```
 
 # Installation
 To install all NPM dependencies locally just run:
@@ -11,7 +23,10 @@ To install all NPM dependencies locally just run:
 npm install
 ```
 
-# Running
+# How to run
+Before running the API, make sure you have generated your JWT private and public keys (see [Generating JWT Keys](#generating-jwt-keys) above).
+
+## Running with Docker
 TBA
 
 # Scripts
@@ -24,4 +39,3 @@ TBA
 | `migrate:down` | Rolls back the most recent database migration |
 | `migrate:create` | Creates a new database migration file |
 | `test` | Runs tests using Node's built-in test runner |
-

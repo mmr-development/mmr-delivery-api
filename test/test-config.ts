@@ -11,7 +11,7 @@ export const testConfig: TestConfig = {
   database: {
     host: 'localhost',
     port: 5432,
-    database: 'just_authentication_test',
+    database: 'mmr_delivery_test',
     user: 'postgres',
     password: 'postgres',
   },

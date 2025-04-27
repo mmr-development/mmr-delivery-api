@@ -17,17 +17,17 @@ export interface Config {
 }
 
 export const config: Config = {
-    host: process.env.HOST || 'localhost',
+    host: process.env.HOST || '0.0.0.0',
     port: parseInt(process.env.PORT || '3000'),
     database: {
         host: process.env.DB_HOST || 'localhost',
         port: parseInt(process.env.DB_PORT || '5432'),
         user: process.env.DB_USER || 'postgres',
         password: process.env.DB_PASSWORD || 'postgres',
-        database: process.env.DB_NAME || 'just_authentication_test',
+        database: process.env.DB_NAME || 'mmr_delivery_test',
     },
     redis: {
-        host: process.env.REDIS_HOST || 'localhost',
+        host: process.env.REDIS_HOST || 'host.docker.internal',
         port: parseInt(process.env.REDIS_PORT || '6379'),
         password: process.env.REDIS_PASSWORD,
     },

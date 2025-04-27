@@ -4,8 +4,7 @@ import AutoLoad from '@fastify/autoload';
 import { authenticationController, createAuthenticationTokenService, createRefreshTokenRepository } from './modules/authentication';
 import { createSignInMethodService, createSignInMethodRepository } from './modules/sign-in-method';
 import { jwksController, createJwksService } from './modules/jwks';
-import { createUserRepository } from './modules/users/user.repository';
-import { createUserService } from './modules/users/user.service';
+import { createUserService, createUserRepository } from './modules/users';
 import { Database } from './database';
 import { Kysely, PostgresDialect } from 'kysely';
 import { Pool } from 'pg';
@@ -28,7 +27,7 @@ export async function buildApp(fastify: FastifyInstance, opts: AppOptions) {
     fastify.register(AutoLoad, {
         dir: join(__dirname, 'plugins'),
         dirNameRoutePrefix: false,
-        options: { ...opts, db },
+        options: { ...opts, db, config },
     });
 
     fastify.register(authenticationController, {

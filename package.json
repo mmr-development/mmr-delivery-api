@@ -3,9 +3,10 @@
     "clean": "rimraf ./dist",
     "build": "npm run clean && tsc -p tsconfig.json",
     "start:dev": "ts-node-dev --respawn --transpile-only --env-file .env ./src/server.ts",
+    "start": "node --env-file .env.production.local ./dist/src/server.js",
     "migrate:latest": "node --env-file .env ./dist/scripts/migrate-to-latest.js",
-    "migrate:down": "node --env-file .env ./dist/scripts/migrate-down.js",
-    "migrate:create": "node --env-file .env ./scripts/migrate-create.ts",
+    "migrate:down": "node ./dist/scripts/migrate-down.js",
+    "migrate:create": "node ./scripts/migrate-create.ts",
     "test": "node --test --require ts-node/register/transpile-only test/**/*.test.ts"
   },
   "dependencies": {
@@ -27,7 +28,6 @@
     "@types/node": "^22.14.1",
     "@types/node-jose": "^1.1.13",
     "@types/pg": "^8.11.12",
-    "axios": "^1.8.4",
     "ts-node": "^10.9.2",
     "ts-node-dev": "^2.0.0",
     "typescript": "^5.8.3"

@@ -1,0 +1,19 @@
+services:
+  app:
+    build: .
+    environment:
+      DB_HOST: host.docker.internal
+      DB_PORT: 5432
+      DB_USER: postgres
+      DB_PASSWORD: postgres
+      DB_NAME: mmr_delivery
+      REDIS_HOST: host.docker.internal
+      REDIS_PORT: 6379
+      HOST: 0.0.0.0
+      PORT: 8080
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./keys:/app/keys
+    command: npm start
+    

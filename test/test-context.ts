@@ -1,5 +1,4 @@
 import * as path from 'path';
-import axios from 'axios';
 import { promises as fs } from 'fs';
 import {
   FileMigrationProvider,
@@ -16,12 +15,6 @@ import Fastify, { FastifyInstance } from 'fastify';
 
 let db: Kysely<Database>;
 let server: FastifyInstance;
-
-// Create axios instance for testing API calls
-const request = axios.create({
-  baseURL: `http://localhost:${testConfig.port}`,
-  validateStatus: () => true,
-})
 
 export async function before(): Promise<void> {
   const adminDb = new Kysely<Database>({
@@ -67,4 +60,4 @@ export async function afterEach(): Promise<void> {
   await server.close()
 }
 
-export { request, db, server }
+export { db, server }
