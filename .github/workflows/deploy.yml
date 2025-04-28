@@ -17,6 +17,12 @@ jobs:
     - name: Set up Docker Buildx
       uses: docker/setup-buildx-action@v3
 
+    - name: Write JWT keys
+      run: |
+        mkdir -p keys
+        echo "${{ secrets.PRIVATE_KEY_PEM }}" > keys/private.pem
+        echo "${{ secrets.PUBLIC_KEY_PEM }}" > keys/public.pem
+
     - name: Build and start services for testing
       run: docker compose up -d --build
 
