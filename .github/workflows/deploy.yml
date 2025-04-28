@@ -99,8 +99,8 @@ jobs:
                 -e DB_USER="${{ secrets.PROD_DB_USER }}" \
                 -e DB_PASSWORD="${{ secrets.PROD_DB_PASSWORD }}" \
                 -e DB_NAME="${{ secrets.PROD_DB_NAME }}" \
-                -e REDIS_HOST="${{ secrets.PROD_REDIS_HOST }}" \
-                -e REDIS_PORT="${{ secrets.PROD_REDIS_PORT }}" \
+                -e REDIS_HOST="${{ secrets.REDIS_HOST }}" \
+                -e REDIS_PORT="${{ secrets.REDIS_PORT }}" \
                 -v /home/deploy/keys:/app/keys \
                 --restart unless-stopped \
                 rokdev01/mmr-delivery-api:latest
