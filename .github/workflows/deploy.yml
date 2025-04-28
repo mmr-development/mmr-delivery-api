@@ -42,6 +42,19 @@ jobs:
     - name: Stop services
       run: docker compose down
 
+    - name: Login to Docker Hub
+      uses: docker/login-action@v3
+      with:
+        username: ${{ secrets.DOCKERHUB_USERNAME }}
+        password: ${{ secrets.DOCKERHUB_TOKEN }}
+        
+    - name: Build and push Docker image
+      uses: docker/build-push-action@v5
+      with:
+        context: .
+        push: true
+        tags: rokdev01/mmr-delivery-api:latest
+
     - name: Build Docker Image
       run: docker build . --file Dockerfile --tag my-image-name:latest
 
@@ -61,9 +74,14 @@ jobs:
 
     - name: Deploy to VPS
       run: |
-          ssh -p 49542 -o StrictHostKeyChecking=no deploy@135.125.235.169 << 'EOF'
-          docker pull my-image-name:latest
-          docker stop my-container || true
-          docker rm my-container || true
-          docker run -d --name my-container -p 80:80 my-image-name:latest
-          EOF
+            ssh -p 49542 -o StrictHostKeyChecking=no deploy@135.125.235.169 << 'EOF'
+            # Login to Docker Hub (recommended approach for private images)
+            echo "${{ secrets.DOCKERHUB_TOKEN }}" | docker login -u rokdev01 --password-stdin
+            # Pull the image from Docker Hub
+            docker pull rokdev01/mmr-delivery-api:latest
+            # Stop and remove existing container
+            docker stop my-container || true
+            docker rm my-container || true
+            # Run new container with the pulled image
+            docker run -d --name my-container -p 80:3000 rokdev01/mmr-delivery-api:latest
+            EOF
