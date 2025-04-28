@@ -61,9 +61,9 @@ jobs:
 
     - name: Deploy to VPS
       run: |
-        ssh -o StrictHostKeyChecking=no deploy@135.125.235.169 << 'EOF'
-        docker pull my-image-name:latest
-        docker stop my-container || true
-        docker rm my-container || true
-        docker run -d --name my-container -p 80:80 my-image-name:latest
-        EOF
+          ssh -p 49542 -o StrictHostKeyChecking=no deploy@135.125.235.169 << 'EOF'
+          docker pull my-image-name:latest
+          docker stop my-container || true
+          docker rm my-container || true
+          docker run -d --name my-container -p 80:80 my-image-name:latest
+          EOF
