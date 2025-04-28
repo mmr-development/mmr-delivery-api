@@ -6,7 +6,7 @@ export interface TestConfig extends Config {
 }
 
 export const testConfig: TestConfig = {
-  host: '0.0.0.0',
+  host: 'localhost',
   port: 8050,
   database: {
     host: 'localhost',
