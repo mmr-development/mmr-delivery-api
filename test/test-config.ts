@@ -9,14 +9,14 @@ export const testConfig: TestConfig = {
   host: 'localhost',
   port: 8050,
   database: {
-    host: 'localhost',
+    host: 'postgres',
     port: 5432,
     database: 'mmr_delivery_test',
     user: 'postgres',
     password: 'postgres',
   },
   adminDatabase: {
-    host: 'localhost',
+    host: 'postgres',
     port: 5432,
     database: 'postgres',
     user: 'postgres',
