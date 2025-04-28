@@ -23,7 +23,7 @@ export const testConfig: TestConfig = {
     password: 'postgres',
   },
   redis: {
-    host: 'localhost',
+    host: 'redis',
     port: 6379,
     password: undefined,
   },
