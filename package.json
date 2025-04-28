@@ -3,7 +3,7 @@
     "clean": "rimraf ./dist",
     "build": "npm run clean && tsc -p tsconfig.json",
     "start:dev": "ts-node-dev --respawn --transpile-only --env-file .env ./src/server.ts",
-    "start": "node --env-file .env.production.local ./dist/src/server.js",
+    "start": "node ./dist/src/server.js",
     "migrate:latest": "node --env-file .env ./dist/scripts/migrate-to-latest.js",
     "migrate:down": "node ./dist/scripts/migrate-down.js",
     "migrate:create": "node ./scripts/migrate-create.ts",
