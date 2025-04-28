@@ -52,7 +52,9 @@ export async function after(): Promise<void> {
 }
 
 export async function beforeEach(): Promise<void> {
-  server = Fastify();
+  server = Fastify({
+    logger: true,
+  });
   server.register(buildApp, { config: testConfig });
 }
 
