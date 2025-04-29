@@ -27,7 +27,7 @@ export const config: Config = {
         database: process.env.DB_NAME || 'mmr_delivery_test',
     },
     redis: {
-        host: process.env.REDIS_HOST || 'host.docker.internal',
+        host: process.env.REDIS_HOST || '172.17.0.1',
         port: parseInt(process.env.REDIS_PORT || '6379'),
         password: process.env.REDIS_PASSWORD,
     },
