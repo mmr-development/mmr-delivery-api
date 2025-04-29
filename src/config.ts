@@ -18,7 +18,7 @@ export interface Config {
 
 export const config: Config = {
     host: process.env.HOST || '0.0.0.0',
-    port: parseInt(process.env.PORT || '3000'),
+    port: parseInt(process.env.PORT || '8080'),
     database: {
         host: process.env.DB_HOST || 'postgres',
         port: parseInt(process.env.DB_PORT || '5432'),
