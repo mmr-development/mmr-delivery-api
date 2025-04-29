@@ -93,7 +93,7 @@ jobs:
               # Run container with host machine's DB and Redis
               docker run -d --name mmr-delivery-api \
                 --add-host=host.docker.internal:host-gateway \
-                -p 80:8080 \
+                -p 8080:8080 \
                 -e NODE_ENV="production" \
                 -e DB_HOST="${{ secrets.PROD_DB_HOST }}" \
                 -e DB_PORT="${{ secrets.PROD_DB_PORT }}" \
