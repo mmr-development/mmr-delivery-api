@@ -92,7 +92,7 @@ jobs:
               
               # Run container with host machine's DB and Redis
               docker run -d --name mmr-delivery-api \
-              --add-host=host.docker.internal:host-gateway \
+                --add-host=host.docker.internal:host-gateway \
                 -p 80:8080 \
                 -e NODE_ENV="production" \
                 -e DB_HOST="${{ secrets.PROD_DB_HOST }}" \
@@ -102,6 +102,7 @@ jobs:
                 -e DB_NAME="${{ secrets.PROD_DB_NAME }}" \
                 -e REDIS_HOST="${{ secrets.REDIS_HOST }}" \
                 -e REDIS_PORT="${{ secrets.REDIS_PORT }}" \
+                -e REDIS_PASSWORD="${{ secrets.REDIS_PASSWORD }}" \
                 -v /home/deploy/keys:/app/keys \
                 --restart unless-stopped \
                 rokdev01/mmr-delivery-api:latest
