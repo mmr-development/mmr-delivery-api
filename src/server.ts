@@ -12,6 +12,7 @@ async function main(customConfig = config) {
                 target: 'pino-pretty',
             },
         },
+        trustProxy: true,
     });
 
     server.register(buildApp, { config });
