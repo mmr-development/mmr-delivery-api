@@ -29,7 +29,7 @@ export const config: Config = {
     host: process.env.HOST || '0.0.0.0',
     port: parseInt(process.env.PORT || '8080'),
     database: {
-        host: process.env.DB_HOST || 'localhost',
+        host: process.env.DB_HOST || '172.17.0.1',
         port: parseInt(process.env.DB_PORT || '5432'),
         user: process.env.DB_USER || 'postgres',
         password: process.env.DB_PASSWORD || 'postgres',
