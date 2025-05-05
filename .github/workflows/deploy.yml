@@ -84,41 +84,41 @@ jobs:
                 
             # Pull the latest image
             docker pull rokdev01/mmr-delivery-api:latest
-            
-            # Create required directories
-            mkdir -p /home/deploy/data/postgres /home/deploy/data/redis /home/deploy/keys
+
+            # Stop and remove existing container
+            docker stop mmr-delivery-api || true
+            docker rm mmr-delivery-api || true
             
             # Write key files
             echo "${{ secrets.PRIVATE_KEY_PEM }}" > /home/deploy/keys/private.pem
             echo "${{ secrets.PUBLIC_KEY_PEM }}" > /home/deploy/keys/public.pem
             
-            # Create a .env file for docker-compose
-            cat > /home/deploy/.env << 'ENVFILE'
-            DB_HOST=postgres
-            DB_PORT=${{ secrets.PROD_DB_PORT }}
-            DB_USER=${{ secrets.PROD_DB_USER }}
-            DB_PASSWORD=${{ secrets.PROD_DB_PASSWORD }}
-            DB_NAME=${{ secrets.PROD_DB_NAME }}
-            REDIS_HOST=redis
-            REDIS_PORT=${{ secrets.REDIS_PORT }}
-            REDIS_PASSWORD=${{ secrets.REDIS_PASSWORD }}
-            NODE_ENV=production
-            EMAIL_HOST=smtp.gmail.com
-            EMAIL_PORT=465
-            EMAIL_SECURE=false
-            EMAIL_USER=mmrdevelopmentteam@gmail.com
-            EMAIL_PASSWORD=${{ secrets.EMAIL_PASSWORD }}
-            EMAIL_FROM="MMR Delivery"
-            APP_URL=http://localhost:8080
-            ENVFILE
+            # Run container with host machine's DB and Redis
+            docker run -d --name mmr-delivery-api \
+              -p 8080:8080 \
+              -e NODE_ENV="production" \
+              -e DB_HOST="${{ secrets.PROD_DB_HOST }}" \
+              -e DB_PORT="${{ secrets.PROD_DB_PORT }}" \
+              -e DB_USER="${{ secrets.PROD_DB_USER }}" \
+              -e DB_PASSWORD="${{ secrets.PROD_DB_PASSWORD }}" \
+              -e DB_NAME="${{ secrets.PROD_DB_NAME }}" \
+              -e REDIS_HOST="${{ secrets.REDIS_HOST }}" \
+              -e REDIS_PORT="${{ secrets.REDIS_PORT }}" \
+              -e REDIS_PASSWORD="${{ secrets.REDIS_PASSWORD }}" \
+              -e EMAIL_HOST=smtp.gmail.com \
+              -e EMAIL_PORT=465 \
+              -e EMAIL_SECURE=false \
+              -e EMAIL_USER=mmrdevelopmentteam@gmail.com \
+              -e EMAIL_PASSWORD="${{ secrets.EMAIL_PASSWORD }}" \
+              -e EMAIL_FROM="MMR Delivery" \
+              -e APP_URL=http://localhost:8080 \
+              -v /home/deploy/keys:/app/keys \
+              --restart unless-stopped \
+              rokdev01/mmr-delivery-api:latest
             
-            # Stop any running containers
-            cd /home/deploy
-            docker-compose down || true
+            # Check if container is running
+            docker ps | grep mmr-delivery-api || echo "WARNING: Container failed to start"
             
-            # Start all services with the custom image
-            docker-compose up -d --no-build
-            
-            # Check if containers are running
-            docker-compose ps
+            # Show logs if container exists but isn't running
+            docker ps -a | grep -q mmr-delivery-api && docker logs mmr-delivery-api
             EOF
