@@ -68,13 +68,16 @@ jobs:
             ssh -p 49542 -o StrictHostKeyChecking=no deploy@135.125.235.169 << EOF
             # Login to Docker Hub
             echo "${{ secrets.DOCKERHUB_TOKEN }}" | docker login -u rokdev01 --password-stdin
-
-            # Create keys directory and write keys
+            
+            # Create keys directory with proper permissions and write keys
             mkdir -p /home/deploy/keys
-            # Debug check - does this print anything?
-            echo "Debug: Secret length is \$(echo '${{ secrets.PRIVATE_KEY_PEM }}' | wc -c) characters"
+            chmod 700 /home/deploy/keys
+            
+            # Write keys with proper permissions
             echo "${{ secrets.PRIVATE_KEY_PEM }}" > /home/deploy/keys/private.pem
+            chmod 600 /home/deploy/keys/private.pem
             echo "${{ secrets.PUBLIC_KEY_PEM }}" > /home/deploy/keys/public.pem
+            chmod 600 /home/deploy/keys/public.pem
                   
             # Navigate to the deployment directory
             cd /home/deploy
