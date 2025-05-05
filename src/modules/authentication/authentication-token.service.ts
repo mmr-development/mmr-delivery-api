@@ -25,7 +25,6 @@ export interface AuthenticationTokenService {
     signAccessToken(tokenPayload: AccessTokenPayload): AccessToken;
     revokeRefreshToken(sub: string, refreshToken: string): Promise<void>;
     rotateTokens(refreshToken: string): Promise<{accessToken: AccessToken, refreshToken: RefreshToken}>;
-    // blacklistAccessToken(token: string): Promise<void>;
 }
 
 interface AccessTokenPayload {
@@ -168,27 +167,5 @@ export function createAuthenticationTokenService(repository: RefreshTokenReposit
                 refreshToken: newRefreshToken
             };
         },
-        // async blacklistAccessToken(token: string): Promise<void> {
-        //     try {
-        //         const decoded = jwt.decode(token);
-        //         if (!decoded || typeof decoded !== 'object' || !decoded.jti || !decoded.exp) {
-        //             throw new InvalidAccessTokenError('Invalid token format');
-        //         }
-                
-        //         const jti = decoded.jti;
-        //         const exp = decoded.exp;
-                
-        //         // Calculate TTL (time to live) in seconds
-        //         const now = Math.floor(Date.now() / 1000);
-        //         const ttl = Math.max(0, exp - now);
-                
-        //         // Add the JTI to Redis blacklist with expiration
-        //         await redisClient.set(`blacklist:${jti}`, '1', 'EX', ttl);
-        //     } catch (error) {
-        //         console.error('Failed to blacklist token:', error);
-        //         throw error;
-        //     }
-        // },
-        
     }
 }

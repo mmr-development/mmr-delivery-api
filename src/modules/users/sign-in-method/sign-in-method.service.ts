@@ -1,6 +1,6 @@
-import { UserService } from '../users/user.service';
-import { AuthenticationTokenService } from '../authentication/authentication-token.service';
-import { PasswordSignInMethod } from './sign-in-method';
+import { UserService } from '../user.service';
+import { AuthenticationTokenService } from '../../authentication/authentication-token.service';
+import { PasswordSignInMethod, PasswordUpdate, SignInMethod } from './sign-in-method';
 import { SignedInUser } from './signed-in-user';
 import { SignInMethodRepository } from './sign-in-method.repository';
 import * as argon2 from 'argon2';
@@ -8,10 +8,10 @@ import {
     UserNotFoundError,
     InvalidCredentialsError,
     ControllerError
-} from '../../utils/errors';
+} from '../../../utils/errors';
 import { Transaction } from 'kysely';
-import { Database } from '../../database';
-import { CreateCustomerUserRequest } from '../users/user';
+import { Database } from '../../../database';
+import { CreateCustomerUserRequest } from '../user';
 
 export class UserAlreadyHasSignInMethodError extends Error {}
 export class EmailAlreadyExistsError extends Error {}
@@ -20,6 +20,7 @@ export interface SignInMethodService {
     signUpWithPassword(trx: Transaction<Database>, method: CreateCustomerUserRequest): Promise<SignedInUser>;
     addPasswordSignInMethod(trx: Transaction<Database>, userId: string, method: PasswordSignInMethod): Promise<void>;
     signInUsingPassword(trx: Transaction<Database>, method: PasswordSignInMethod): Promise<SignedInUser>;
+    updatePasswordSignInMethod(trx: Transaction<Database>, userId: string, method: PasswordUpdate): Promise<void>;
 }
 
 export function createSignInMethodService(authenticationTokenService: AuthenticationTokenService, userService: UserService, signInMethodRepository: SignInMethodRepository) {
@@ -51,6 +52,7 @@ export function createSignInMethodService(authenticationTokenService: Authentica
                 email: method.email,
                 first_name: method.first_name,
                 last_name: method.last_name,
+                phone_number: method.phone_number,
                 password: method.password
               });
 
@@ -92,6 +94,23 @@ export function createSignInMethodService(authenticationTokenService: Authentica
                 accessToken,
                 refreshToken
             }
+        },
+        updatePasswordSignInMethod: async function (trx: Transaction<Database>, userId: string, method: PasswordUpdate): Promise<void> {
+            const user = await userService.lockUserById(trx, userId);
+
+            if (!user) {
+                throw new UserNotFoundError('User not found');
+            }
+
+            const signInMethod = await signInMethodRepository.findPasswordSignInMethod(trx, user.id);
+
+            if (!signInMethod) {
+                throw new ControllerError(404, 'InvalidSignInMethod', 'Password sign-in method not found for this user');
+            }
+
+            await signInMethodRepository.updatePasswordSignInMethod(trx, user.id, {
+                password_hash: await encryptPassword(method.password),
+            });
         }
     }
 }

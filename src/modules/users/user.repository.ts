@@ -4,7 +4,9 @@ import { InsertableUserRow, UserRow } from './user.table';
 
 export interface UserRepository {
     insertUser(trx: Transaction<Database>, user: InsertableUserRow): Promise<UserRow>;
+    createPartnerUser(user: InsertableUserRow): Promise<UserRow>;
     findUserById(id: string): Promise<UserRow | undefined>;
+    findUserByEmail(email: string): Promise<UserRow | undefined>;
     lockUserById(trx: Transaction<Database>, id: string): Promise<UserRow | undefined>;
     lockUserByEmail(trx: Transaction<Database>, email: string): Promise<UserRow | undefined>;
     lockUser(trx: Transaction<Database>, column: 'id' | 'email', value: string): Promise<UserRow | undefined>;
@@ -14,16 +16,33 @@ export function createUserRepository(db: Kysely<Database>): UserRepository {
     return {
         insertUser: async function (trx: Transaction<Database>, user: InsertableUserRow): Promise<UserRow> {
             const insertedUser = await db
-            .insertInto('user')
-            .values(user)
-            .returningAll()
-            .executeTakeFirstOrThrow()
-        
-          return insertedUser
+                .insertInto('user')
+                .values(user)
+                .returningAll()
+                .executeTakeFirstOrThrow()
+
+            return insertedUser
+        },
+        createPartnerUser: async function (user: InsertableUserRow): Promise<UserRow> {
+            const insertedUser = await db
+                .insertInto('user')
+                .values(user)
+                .returningAll()
+                .executeTakeFirstOrThrow()
+
+            return insertedUser
         },
         findUserById: async function (id: string): Promise<UserRow | undefined> {
             const user = await db.selectFrom('user')
                 .where('id', '=', id)
+                .selectAll('user')
+                .executeTakeFirst();
+
+            return user
+        },
+        findUserByEmail: async function (email: string): Promise<UserRow | undefined> {
+            const user = await db.selectFrom('user')
+                .where('email', '=', email)
                 .selectAll('user')
                 .executeTakeFirst();
 

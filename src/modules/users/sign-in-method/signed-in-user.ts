@@ -1,4 +1,4 @@
-import { AccessToken, RefreshToken } from "../authentication/authentication-token.service";
+import { AccessToken, RefreshToken } from "../../authentication/authentication-token.service";
 
 export interface SignedInUser {
     refreshToken: RefreshToken;
