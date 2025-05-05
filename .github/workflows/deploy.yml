@@ -72,9 +72,7 @@ jobs:
             # Create keys with readable permissions
             mkdir -p /home/deploy/keys
             echo "${{ secrets.PRIVATE_KEY_PEM }}" > /home/deploy/keys/private.pem
-            chmod 644 /home/deploy/keys/private.pem
             echo "${{ secrets.PUBLIC_KEY_PEM }}" > /home/deploy/keys/public.pem
-            chmod 644 /home/deploy/keys/public.pem
                   
             # Navigate to the deployment directory
             cd /home/deploy
