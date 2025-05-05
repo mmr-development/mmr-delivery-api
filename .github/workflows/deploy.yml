@@ -26,18 +26,8 @@ jobs:
     - name: Build and start services for testing
       run: docker compose up -d --build
 
-    - name: Wait for Postgres to be ready
-      run: |
-        until docker exec $(docker compose ps -q postgres) pg_isready -U postgres; do
-          sleep 1
-        done
-
     - name: Run tests
       run: docker compose exec -T app npm test
-
-    - name: Show app logs if tests fail
-      if: failure()
-      run: docker compose logs app
 
     - name: Stop services
       run: docker compose down
@@ -54,9 +44,6 @@ jobs:
         context: .
         push: true
         tags: rokdev01/mmr-delivery-api:latest
-
-    - name: Build Docker Image
-      run: docker build . --file Dockerfile --tag my-image-name:latest
 
   deploy:
     runs-on: ubuntu-latest
@@ -84,14 +71,6 @@ jobs:
                 
             # Pull the latest image
             docker pull rokdev01/mmr-delivery-api:latest
-
-            # Stop and remove existing container
-            docker stop mmr-delivery-api || true
-            docker rm mmr-delivery-api || true
-            
-            # Write key files
-            echo "${{ secrets.PRIVATE_KEY_PEM }}" > /home/deploy/keys/private.pem
-            echo "${{ secrets.PUBLIC_KEY_PEM }}" > /home/deploy/keys/public.pem
             
             # Run container with host machine's DB and Redis
             docker run -d --name mmr-delivery-api \
@@ -115,10 +94,5 @@ jobs:
               -v /home/deploy/keys:/app/keys \
               --restart unless-stopped \
               rokdev01/mmr-delivery-api:latest
-            
-            # Check if container is running
-            docker ps | grep mmr-delivery-api || echo "WARNING: Container failed to start"
-            
-            # Show logs if container exists but isn't running
-            docker ps -a | grep -q mmr-delivery-api && docker logs mmr-delivery-api
             EOF
+            
