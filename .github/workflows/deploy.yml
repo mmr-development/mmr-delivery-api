@@ -74,50 +74,50 @@ jobs:
 
     - name: Deploy to VPS
       run: |
-              ssh -p 49542 -o StrictHostKeyChecking=no deploy@135.125.235.169 << 'EOF'
-              # Login to Docker Hub
-              echo "${{ secrets.DOCKERHUB_TOKEN }}" | docker login -u rokdev01 --password-stdin
-              
-              # Pull the image
-              docker pull rokdev01/mmr-delivery-api:latest
-              
-              # Stop and remove existing container
-              docker stop mmr-delivery-api || true
-              docker rm mmr-delivery-api || true
-              
-              # Create keys directory and write keys
-              mkdir -p /home/deploy/keys
-              echo "${{ secrets.PRIVATE_KEY_PEM }}" > /home/deploy/keys/private.pem
-              echo "${{ secrets.PUBLIC_KEY_PEM }}" > /home/deploy/keys/public.pem
-              
-              # Run container with direct environment variables
-              docker run -d --name mmr-delivery-api \
+            ssh -p 49542 -o StrictHostKeyChecking=no deploy@135.125.235.169 << 'EOF'
+            # Login to Docker Hub
+            echo "${{ secrets.DOCKERHUB_TOKEN }}" | docker login -u rokdev01 --password-stdin
+                
+            # Pull the image
+            docker pull rokdev01/mmr-delivery-api:latest
+            
+            # Stop and remove existing container
+            docker stop mmr-delivery-api || true
+            docker rm mmr-delivery-api || true
+            
+            # Create keys directory and write keys
+            mkdir -p /home/deploy/keys
+            echo "${{ secrets.PRIVATE_KEY_PEM }}" > /home/deploy/keys/private.pem
+            echo "${{ secrets.PUBLIC_KEY_PEM }}" > /home/deploy/keys/public.pem
+            
+            # Run container with host machine's DB and Redis
+            docker run -d --name mmr-delivery-api \
               --add-host=host.docker.internal:host-gateway \
               -p 8080:8080 \
-              --restart unless-stopped \
-              -v /home/deploy/keys:/app/keys \
-              -e HOST=0.0.0.0 \
-              -e PORT=8080 \
-              -e DB_HOST=${{ secrets.PROD_DB_HOST }} \
-              -e DB_PORT=${{ secrets.PROD_DB_PORT }} \
-              -e DB_USER=${{ secrets.PROD_DB_USER }} \
-              -e DB_PASSWORD=${{ secrets.PROD_DB_PASSWORD }} \
-              -e DB_NAME=${{ secrets.PROD_DB_NAME }} \
-              -e REDIS_HOST=${{ secrets.REDIS_HOST }} \
-              -e REDIS_PORT=${{ secrets.REDIS_PORT }} \
-              -e REDIS_PASSWORD=${{ secrets.REDIS_PASSWORD }} \
+              -e NODE_ENV="production" \
+              -e DB_HOST="${{ secrets.PROD_DB_HOST }}" \
+              -e DB_PORT="${{ secrets.PROD_DB_PORT }}" \
+              -e DB_USER="${{ secrets.PROD_DB_USER }}" \
+              -e DB_PASSWORD="${{ secrets.PROD_DB_PASSWORD }}" \
+              -e DB_NAME="${{ secrets.PROD_DB_NAME }}" \
+              -e REDIS_HOST="${{ secrets.REDIS_HOST }}" \
+              -e REDIS_PORT="${{ secrets.REDIS_PORT }}" \
+              -e REDIS_PASSWORD="${REDIS_PASSWORD}" \
+              -e REDIS_PASSWORD="${{ secrets.REDIS_PASSWORD }}" \
               -e EMAIL_HOST=smtp.gmail.com \
               -e EMAIL_PORT=465 \
               -e EMAIL_SECURE=false \
               -e EMAIL_USER=mmrdevelopmentteam@gmail.com \
-              -e EMAIL_PASSWORD=${{ secrets.EMAIL_PASSWORD }} \
+              -e EMAIL_PASSWORD="${EMAIL_PASSWORD}" \
               -e EMAIL_FROM="MMR Delivery" \
               -e APP_URL=http://localhost:8080 \
+              -v /home/deploy/keys:/app/keys \
+              --restart unless-stopped \
               rokdev01/mmr-delivery-api:latest
-              
-              # Check if container is running
-              docker ps | grep mmr-delivery-api || echo "WARNING: Container failed to start"
-              
-              # Show logs if container exists but isn't running
-              docker ps -a | grep -q mmr-delivery-api && docker logs mmr-delivery-api
-              EOF
+            
+            # Check if container is running
+            docker ps | grep mmr-delivery-api || echo "WARNING: Container failed to start"
+            
+            # Show logs if container exists but isn't running
+            docker ps -a | grep -q mmr-delivery-api && docker logs mmr-delivery-api
+            EOF
