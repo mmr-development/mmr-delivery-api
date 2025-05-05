@@ -74,6 +74,9 @@ jobs:
             # Stop and remove existing containers
             docker compose down || true
             
+            # Upload the Dockerfile
+            scp -P 49542 ./Dockerfile deploy@135.125.235.169:/home/deploy/Dockerfile
+            
             # Start all services using docker-compose
             docker compose up -d --build
             EOF
