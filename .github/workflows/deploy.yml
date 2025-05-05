@@ -102,13 +102,12 @@ jobs:
               -e DB_NAME="${{ secrets.PROD_DB_NAME }}" \
               -e REDIS_HOST="${{ secrets.REDIS_HOST }}" \
               -e REDIS_PORT="${{ secrets.REDIS_PORT }}" \
-              -e REDIS_PASSWORD="${REDIS_PASSWORD}" \
               -e REDIS_PASSWORD="${{ secrets.REDIS_PASSWORD }}" \
               -e EMAIL_HOST=smtp.gmail.com \
               -e EMAIL_PORT=465 \
               -e EMAIL_SECURE=false \
               -e EMAIL_USER=mmrdevelopmentteam@gmail.com \
-              -e EMAIL_PASSWORD="${EMAIL_PASSWORD}" \
+              -e EMAIL_PASSWORD="${{ secrets.EMAIL_PASSWORD }}" \
               -e EMAIL_FROM="MMR Delivery" \
               -e APP_URL=http://localhost:8080 \
               -v /home/deploy/keys:/app/keys \
