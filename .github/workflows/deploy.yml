@@ -69,11 +69,6 @@ jobs:
             # Login to Docker Hub
             echo "${{ secrets.DOCKERHUB_TOKEN }}" | docker login -u rokdev01 --password-stdin
             
-            # Create keys directory with proper permissions and write keys
-            mkdir -p /home/deploy/keys
-            chmod 700 /home/deploy/keys
-            
-            # Write keys with proper permissions
             echo "${{ secrets.PRIVATE_KEY_PEM }}" > /home/deploy/keys/private.pem
             chmod 600 /home/deploy/keys/private.pem
             echo "${{ secrets.PUBLIC_KEY_PEM }}" > /home/deploy/keys/public.pem
