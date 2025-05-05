@@ -1,7 +1,6 @@
 services:
   app:
     build: .
-    image: rokdev01/mmr-delivery-api:latest
     environment:
       DB_HOST: ${DB_HOST:-postgres}
       DB_PORT: ${DB_PORT:-5432}
