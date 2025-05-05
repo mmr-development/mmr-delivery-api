@@ -4,6 +4,8 @@ WORKDIR /app
 
 COPY package*.json ./
 
+COPY keys/ /app/keys/
+
 RUN npm install
 
 COPY . .
