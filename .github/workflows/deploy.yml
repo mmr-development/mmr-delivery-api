@@ -61,24 +61,19 @@ jobs:
 
     - name: Deploy to VPS
       run: |
-        ssh -p 49542 -o StrictHostKeyChecking=no deploy@135.125.235.169 << 'EOF'
-        # Login to Docker Hub
-        echo "${{ secrets.DOCKERHUB_TOKEN }}" | docker login -u rokdev01 --password-stdin
-              
-        # Navigate to the deployment directory
-        cd /home/deploy
-        
-        # Pull the latest images
-        docker compose pull
-        
-        # Stop and remove existing containers
-        docker compose down || true
-        EOF
-    
-        # Upload the Dockerfile
-        scp -P 49542 -o StrictHostKeyChecking=no ./Dockerfile deploy@135.125.235.169:/home/deploy/Dockerfile
-    
-        ssh -p 49542 -o StrictHostKeyChecking=no deploy@135.125.235.169 << 'EOF'
-        # Start all services using docker-compose
-        docker compose up -d --build
-        EOF
+            ssh -p 49542 -o StrictHostKeyChecking=no deploy@135.125.235.169 << 'EOF'
+            # Login to Docker Hub
+            echo "${{ secrets.DOCKERHUB_TOKEN }}" | docker login -u rokdev01 --password-stdin
+                  
+            # Navigate to the deployment directory
+            cd /home/deploy
+            
+            # Pull the latest images
+            docker compose pull
+            
+            # Stop and remove existing containers
+            docker compose down || true
+            
+            # Start all services using docker-compose
+            docker compose up -d --build
+            EOF
