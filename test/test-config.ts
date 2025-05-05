@@ -26,7 +26,7 @@ export const testConfig: TestConfig = {
   redis: {
     host: 'redis',
     port: 6379,
-    password: undefined,
+    password: '',
   },
   jwt: {
     algorithm: 'RS256',

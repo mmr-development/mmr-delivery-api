@@ -6,7 +6,7 @@ export interface Config {
     readonly redis: {
         readonly host: string;
         readonly port: number;
-        readonly password?: string;
+        readonly password: string;
     };
     readonly jwt: {
         readonly algorithm: string;
@@ -38,7 +38,7 @@ export const config: Config = {
     redis: {
         host: process.env.REDIS_HOST || '172.17.0.1',
         port: parseInt(process.env.REDIS_PORT || '6379'),
-        password: process.env.REDIS_PASSWORD,
+        password: process.env.REDIS_PASSWORD || 'Oq91b4Oa5mQF',
     },
     jwt: {
         algorithm: process.env.JWT_ALGORITHM || 'RS256',
