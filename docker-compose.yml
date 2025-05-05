@@ -38,7 +38,7 @@ services:
     ports:
       - "8080:8080"
     volumes:
-      - ./keys:/app/keys
+      - /home/deploy/keys:/app/keys
     command: npm start
     depends_on:
       - postgres

@@ -71,6 +71,8 @@ jobs:
 
             # Create keys directory and write keys
             mkdir -p /home/deploy/keys
+            # Debug check - does this print anything?
+            echo "Debug: Secret length is \$(echo '${{ secrets.PRIVATE_KEY_PEM }}' | wc -c) characters"
             echo "${{ secrets.PRIVATE_KEY_PEM }}" > /home/deploy/keys/private.pem
             echo "${{ secrets.PUBLIC_KEY_PEM }}" > /home/deploy/keys/public.pem
                   
