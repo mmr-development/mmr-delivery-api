@@ -71,6 +71,10 @@ jobs:
                 
             # Pull the latest image
             docker pull rokdev01/mmr-delivery-api:latest
+
+            # Stop and remove the existing container if it exists
+            docker stop mmr-delivery-api || true
+            docker rm mmr-delivery-api || true
             
             # Run container with host machine's DB and Redis
             docker run -d --name mmr-delivery-api \
@@ -95,4 +99,3 @@ jobs:
               --restart unless-stopped \
               rokdev01/mmr-delivery-api:latest
             EOF
-            
