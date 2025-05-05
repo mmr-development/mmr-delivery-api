@@ -29,14 +29,14 @@ export const config: Config = {
     host: process.env.HOST || '0.0.0.0',
     port: parseInt(process.env.PORT || '8080'),
     database: {
-        host: process.env.DB_HOST || '172.17.0.1',
+        host: process.env.DB_HOST || 'postgres',
         port: parseInt(process.env.DB_PORT || '5432'),
         user: process.env.DB_USER || 'postgres',
         password: process.env.DB_PASSWORD || 'postgres',
         database: process.env.DB_NAME || 'mmr_delivery_test',
     },
     redis: {
-        host: process.env.REDIS_HOST || '172.17.0.1',
+        host: process.env.REDIS_HOST || 'redis',
         port: parseInt(process.env.REDIS_PORT || '6379'),
         password: process.env.REDIS_PASSWORD || 'Oq91b4Oa5mQF',
     },
