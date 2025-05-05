@@ -1,8 +1,6 @@
 services:
   app:
-    build:
-      context: ./app
-      dockerfile: Dockerfile
+    build: .
     image: rokdev01/mmr-delivery-api:latest
     environment:
       DB_HOST: ${DB_HOST:-postgres}
