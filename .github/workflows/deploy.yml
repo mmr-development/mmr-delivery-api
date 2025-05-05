@@ -59,6 +59,10 @@ jobs:
       with:
         ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
 
+    - name: Copy docker-compose.yml to VPS
+      run: |
+        scp -P 49542 -o StrictHostKeyChecking=no docker-compose.yml deploy@135.125.235.169:/home/deploy/docker-compose.yml
+
     - name: Deploy to VPS
       run: |
             ssh -p 49542 -o StrictHostKeyChecking=no deploy@135.125.235.169 << 'EOF'
