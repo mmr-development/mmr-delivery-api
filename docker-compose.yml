@@ -1,7 +1,7 @@
 services:
   app:
     build:
-      context: .
+      context: ./app
       dockerfile: Dockerfile
     image: rokdev01/mmr-delivery-api:latest
     environment:
