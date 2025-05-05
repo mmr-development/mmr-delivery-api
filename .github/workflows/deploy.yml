@@ -75,5 +75,5 @@ jobs:
             docker compose down || true
             
             # Start all services using docker-compose
-            docker compose up -d --build
+            docker compose up -d
             EOF
