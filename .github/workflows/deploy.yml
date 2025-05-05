@@ -24,13 +24,13 @@ jobs:
         echo "${{ secrets.PUBLIC_KEY_PEM }}" > keys/public.pem
 
     - name: Build and start services for testing
-      run: docker compose up -d --build
+      run: docker compose --profile dev up -d --build
 
     - name: Run tests
-      run: docker compose exec -T app npm test
+      run: docker compose --profile dev exec -T app npm test
 
     - name: Stop services
-      run: docker compose down
+      run: docker compose --profile dev down
 
     - name: Login to Docker Hub
       uses: docker/login-action@v3
@@ -69,11 +69,11 @@ jobs:
             cd /home/deploy
             
             # Pull the latest images
-            docker compose pull
+            docker compose --profile prod pull
             
             # Stop and remove existing containers
-            docker compose down || true
+            docker compose --profile prod down || true
             
             # Start all services using docker-compose
-            docker compose up -d
+            docker compose --profile prod up -d
             EOF

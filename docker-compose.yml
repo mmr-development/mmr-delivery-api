@@ -1,5 +1,30 @@
 services:
   app:
+    profiles: ["dev"]
+    build: .
+    environment:
+      DB_HOST: ${DB_HOST:-postgres}
+      DB_PORT: ${DB_PORT:-5432}
+      DB_USER: ${DB_USER:-postgres}
+      DB_PASSWORD: ${DB_PASSWORD:-postgres}
+      DB_NAME: ${DB_NAME:-mmr_delivery}
+      REDIS_HOST: redis
+      REDIS_PORT: ${REDIS_PORT:-6379}
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-}
+      HOST: 0.0.0.0
+      PORT: 8080
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./keys:/app/keys
+    command: npm start
+    depends_on:
+      - postgres
+      - redis
+    restart: unless-stopped
+
+  app-production:
+    profiles: ["prod"]
     image: rokdev01/mmr-delivery-api:latest
     environment:
       DB_HOST: ${DB_HOST:-postgres}
