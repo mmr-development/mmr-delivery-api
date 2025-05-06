@@ -68,6 +68,11 @@ jobs:
             ssh -p 49542 -o StrictHostKeyChecking=no deploy@135.125.235.169 << EOF
             # Login to Docker Hub
             echo "${{ secrets.DOCKERHUB_TOKEN }}" | docker login -u rokdev01 --password-stdin
+
+            # Export environment variables
+            export NODE_ENV="production"
+            export EMAIL_USER="${{ secrets.EMAIL_USER }}"
+            export EMAIL_PASSWORD="${{ secrets.EMAIL_PASSWORD }}"
             
             # Create keys with readable permissions
             mkdir -p /home/deploy/keys
