@@ -11,9 +11,6 @@ services:
       REDIS_HOST: redis
       REDIS_PORT: ${REDIS_PORT:-6379}
       REDIS_PASSWORD: ${REDIS_PASSWORD:-}
-      NODE_ENV: ${NODE_ENV:-production}
-      EMAIL_USER: ${EMAIL_USER}
-      EMAIL_PASSWORD: ${EMAIL_PASSWORD}
       HOST: 0.0.0.0
       PORT: 8080
     ports:
@@ -37,6 +34,9 @@ services:
       REDIS_HOST: redis
       REDIS_PORT: ${REDIS_PORT:-6379}
       REDIS_PASSWORD: ${REDIS_PASSWORD:-}
+      NODE_ENV: ${NODE_ENV:-production}
+      EMAIL_USER: ${EMAIL_USER}
+      EMAIL_PASSWORD: ${EMAIL_PASSWORD}
       HOST: 0.0.0.0
       PORT: 8080
     ports:
