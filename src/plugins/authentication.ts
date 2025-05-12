@@ -28,6 +28,7 @@ declare module '@fastify/jwt' {
             sub: string;
             jti: string;
             exp: number;
+            role: string;
         }
     }
 }
@@ -59,6 +60,10 @@ export const authenticationPlugin: FastifyPluginAsync<AuthenticationPluginOption
         secret: {
             private: secret,
             public: fs.readFileSync(path.resolve(process.cwd(), 'keys', 'public.pem'), 'utf8'),
+        },
+        cookie: {
+            cookieName: 'access_token',
+            signed: false,
         },
         trusted: async function (request, token) {
             if (!token.jti) return true;

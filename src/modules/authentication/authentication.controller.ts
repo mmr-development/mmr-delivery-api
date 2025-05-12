@@ -1,9 +1,10 @@
 import { FastifyPluginAsync } from 'fastify';
-import { SignInMethodService } from '../users/sign-in-method/sign-in-method.service';
+import { InvalidCredentialsError, InvalidSignInMethodError, SignInMethodService, UserNotFoundError } from '../users/sign-in-method/sign-in-method.service';
 import { AuthenticationTokenService, RefreshToken } from './authentication-token.service';
 import { UserService } from '../users/user.service';
 import { PasswordResetTokenService } from './password-reset.service';
 import { ChangePasswordRequest, changePasswordSchema, forgotPasswordSchema, loginSchema, logoutSchema, refreshTokenSchema, ResetPasswordParams, ResetPasswordRequest, resetPasswordSchema, signupSchema } from './auth.schema';
+import { ControllerError } from '../../utils/errors';
 
 export interface AuthenticationControllerOptions {
     signInMethodService: SignInMethodService;
@@ -13,39 +14,84 @@ export interface AuthenticationControllerOptions {
 }
 
 export const authenticationController: FastifyPluginAsync<AuthenticationControllerOptions> = async function (server, { signInMethodService, authenticationTokenService, userService, passwordResetService }) {
-    server.post<{ Body: { email: string, password: string }, Querystring: { client_id?: string } }>('/auth/sign-in/', { schema: { ...loginSchema } }, async (request, reply) => {
-        const { email, password } = request.body;
-        const { client_id } = request.query;
+    server.post<{ Body: { email: string, password: string }, Querystring: { client_id: string } }>('/auth/sign-in/', { schema: { ...loginSchema } }, async (request, reply) => {
+        try {
+            const { email, password } = request.body;
+            const { client_id } = request.query;
 
-        const signInMethod = {
-            email,
-            password,
-            client_id
-        };
+            const signInMethod = {
+                email,
+                password,
+                client_id
+            };
 
-        const signedInUser = await request.db.transaction().execute(async (trx) => {
-            return await signInMethodService.signInUsingPassword(trx, signInMethod);
-        });
+            const signedInUser = await request.db.transaction().execute(async (trx) => {
+                return await signInMethodService.signInUsingPassword(trx, signInMethod);
+            });
 
-        reply.status(200).send({
-            access_token: signedInUser.accessToken.accessToken,
-            refresh_token: signedInUser.refreshToken.refreshToken
-        });
+            // Set HTTP-only cookie for access token
+            reply.setCookie('access_token', signedInUser.accessToken.accessToken, {
+                httpOnly: true,         // prevent JS access
+                secure: true,           // HTTPS only (allowed on localhost)
+                sameSite: 'none',       // permit cross-site usage
+                path: '/',
+                maxAge: 3600
+            });
+
+            // Set HTTP-only cookie for refresh token
+            reply.setCookie('refresh_token', signedInUser.refreshToken.refreshToken, {
+                httpOnly: true,
+                secure: process.env.NODE_ENV === 'production',
+                sameSite: 'lax',
+                path: '/auth/refresh-token/',
+                maxAge: 2592000
+            });
+
+            reply.status(200).send({
+                access_token: signedInUser.accessToken.accessToken,
+                refresh_token: signedInUser.refreshToken.refreshToken
+            });
+        } catch (error) {
+            if (error instanceof InvalidCredentialsError || error instanceof UserNotFoundError) {
+                throw new ControllerError(401, "InvalidCredentials", "Invalid credentials");
+            } else if (error instanceof InvalidSignInMethodError) {
+                throw new ControllerError(404, "InvalidSignInMethod", "Invalid sign-in method");
+            }
+        }
     });
 
     server.post<{ Body: { refresh_token: string } }>('/auth/sign-out/', { schema: { ...logoutSchema }, preHandler: [server.authenticate] }, async (request, reply) => {
         const userId = request.user.sub;
 
+        // Revoke the access token
         await request.revokeToken();
-
-        const refreshToken = request.body.refresh_token;
-
-        await authenticationTokenService.revokeRefreshToken(userId, refreshToken);
-
+    
+        // Try to get refresh token from cookie first, then from body
+        let refreshToken = request.cookies.refresh_token;
+        
+        // If not in cookie, check request body
+        if (!refreshToken && request.body.refresh_token) {
+            refreshToken = request.body.refresh_token;
+        }
+    
+        if (refreshToken) {
+            // Revoke refresh token in database
+            await authenticationTokenService.revokeRefreshToken(userId, refreshToken);
+        }
+    
+        // Clean up cookies if they were used
+        if (request.cookies.access_token) {
+            reply.clearCookie('access_token', { path: '/' });
+        }
+        
+        if (request.cookies.refresh_token) {
+            reply.clearCookie('refresh_token', { path: '/auth/refresh-token/' });
+        }
+    
         reply.status(200).send({
             message: "Successfully logged out"
         });
-    });
+    })
 
     server.post<{ Body: { refresh_token: string } }>('/auth/refresh-token/', { schema: { ...refreshTokenSchema } }, async (request, reply) => {
         const { refresh_token } = request.body;

@@ -1,3 +1,5 @@
+import { CatalogItem } from "./catalog-item";
+import { CatalogCategory } from "./catelog-category";
 
 export interface Catalog {
     id: number;

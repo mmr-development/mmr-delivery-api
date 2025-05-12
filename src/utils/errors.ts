@@ -6,7 +6,7 @@ export type AuthenticationErrors =
   | 'UserMismatch'
   | 'UserOrRefreshTokenNotFound';
 
-export type UserApiErrors = 'InvalidUser' | 'UserNotFound';
+export type UserApiErrors = 'InvalidUser' | 'UserNotFound' | 'EmailAlreadyExists';
 
 export type SignInMethodApiErrors =
   | 'InvalidSignInMethod'
@@ -57,32 +57,8 @@ export class ControllerError extends Error {
       statusCode: this.status,
       error: statusCodeToMessage[this.status],
       message: this.message,
+      code: this.code,
+      ...(this.data ? { data: this.data } : {}),
     };
-  }
-}
-
-// Authentication specific errors
-export class InvalidCredentialsError extends ControllerError {
-  constructor(message: string = 'Invalid credentials', data?: any) {
-    super(401, 'InvalidCredentials', message, data);
-  }
-}
-
-export class InvalidRefreshTokenError extends ControllerError {
-  constructor(message: string = 'Invalid refresh token', data?: any) {
-    super(401, 'InvalidRefreshToken', message, data);
-  }
-}
-
-export class ExpiredAuthTokenError extends ControllerError {
-  constructor(message: string = 'Authentication token expired', data?: any) {
-    super(401, 'ExpiredAuthToken', message, data);
-  }
-}
-
-// User specific errors
-export class UserNotFoundError extends ControllerError {
-  constructor(message: string = 'User not found', data?: any) {
-    super(404, 'UserNotFound', message, data);
   }
 }

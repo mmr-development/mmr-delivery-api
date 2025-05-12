@@ -4,11 +4,15 @@ export async function up(db: Kysely<any>): Promise<void> {
     await db.schema.createTable('partner')
         .addColumn('id', 'serial', (col) => col.primaryKey())
         .addColumn('name', 'varchar(255)', (col) => col.notNull())
-        // .addColumn('primary_address_id', 'integer', (col) => col.notNull().references('address.id').onDelete('cascade'))
+        .addColumn('phone_number', 'varchar(20)', (col) => col.notNull())
+        .addColumn('address_id', 'integer', (col) => col.notNull().references('address.id').onDelete('cascade'))
         .addColumn('status', 'varchar(50)', (col) => col.notNull().defaultTo('pending').check(sql`status IN ('pending', 'reviewing', 'approved', 'rejected', 'suspended')`))
         .addColumn('delivery_method_id', 'integer', (col) => col.notNull().references('delivery_method.id').onDelete('cascade'))
         .addColumn('business_type_id', 'integer', (col) => col.notNull().references('business_type.id').onDelete('cascade'))
         .addColumn('user_id', 'uuid', (col) => col.notNull().references('user.id').onDelete('cascade'))
+        .addColumn('delivery_fee', 'decimal', (col) => col.notNull().defaultTo('0.00'))
+        .addColumn('min_order_value', 'decimal', (col) => col.notNull().defaultTo('0.00'))
+        .addColumn('max_delivery_distance_km', 'decimal', (col) => col.notNull().defaultTo('10.00'))
         .addColumn('created_at', 'timestamp', (col) => col.notNull().defaultTo(sql`now()`))
         .addColumn('updated_at', 'timestamp', (col) => col.notNull().defaultTo(sql`now()`))
         .execute();
@@ -21,6 +25,7 @@ export async function up(db: Kysely<any>): Promise<void> {
         .addColumn('closes_at', 'time', (col) => col.notNull())
         .addColumn('created_at', 'timestamp', (col) => col.notNull().defaultTo(sql`now()`))
         .addColumn('updated_at', 'timestamp', (col) => col.notNull().defaultTo(sql`now()`))
+        .addUniqueConstraint('unique_partner_day', ['partner_id', 'day_of_week'])
         .execute();
 }
 

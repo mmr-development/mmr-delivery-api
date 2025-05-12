@@ -4,11 +4,6 @@ import path from 'path';
 import { config } from '../../config';
 import { RefreshTokenRepository } from './refresh-token.repository';
 import * as crypto from 'crypto';
-import { 
-    ExpiredAuthTokenError, 
-    InvalidCredentialsError, 
-    InvalidRefreshTokenError 
-  } from '../../utils/errors';
 import { Redis } from 'ioredis';
 
 export class AccessTokenError extends Error { }
@@ -19,12 +14,12 @@ export class RefreshTokenUserIdMismatchError extends Error { }
 export interface AuthenticationTokenService {
     createRefreshToken(sub: string): Promise<RefreshToken>;
     signRefreshToken(tokenPayload: RefreshTokenPayload): RefreshToken;
-    createAccessToken(refreshToken: string): Promise<AccessToken>;
+    createAccessToken(refreshToken: string, claims?: Record<string, any>): Promise<AccessToken>;
     verifyRefreshToken(token: string): Promise<RefreshTokenPayload>;
     verifyToken(token: string): string | jwt.JwtPayload;
-    signAccessToken(tokenPayload: AccessTokenPayload): AccessToken;
+    signAccessToken(tokenPayload: AccessTokenPayload, claims?: Record<string, any>): AccessToken;
     revokeRefreshToken(sub: string, refreshToken: string): Promise<void>;
-    rotateTokens(refreshToken: string): Promise<{accessToken: AccessToken, refreshToken: RefreshToken}>;
+    rotateTokens(refreshToken: string, claims?: Record<string, any>): Promise<{ accessToken: AccessToken, refreshToken: RefreshToken }>;
 }
 
 interface AccessTokenPayload {
@@ -85,16 +80,16 @@ export function createAuthenticationTokenService(repository: RefreshTokenReposit
                 )
             };
         },
-        createAccessToken: async function (refreshToken: string): Promise<AccessToken> {
+        createAccessToken: async function (refreshToken: string, claims?: Record<string, any>): Promise<AccessToken> {
             const { sub, jti } = await this.verifyRefreshToken(refreshToken)
 
             await repository.updateRefreshToken(jti, {
                 last_refreshed_at: new Date(),
             })
 
-            return this.signAccessToken({ sub, refresh_token_id: jti, jti })
+            return this.signAccessToken({ sub, refresh_token_id: jti, jti, }, claims)
         },
-        verifyRefreshToken: async function(token: string): Promise<RefreshTokenPayload> {
+        verifyRefreshToken: async function (token: string): Promise<RefreshTokenPayload> {
             const payload = this.verifyToken(token)
 
             if (
@@ -128,7 +123,7 @@ export function createAuthenticationTokenService(repository: RefreshTokenReposit
                 throw new InvalidAccessTokenError()
             }
         },
-        signAccessToken(tokenPayload: AccessTokenPayload): AccessToken {
+        signAccessToken(tokenPayload: AccessTokenPayload, claims?: Record<string, any>): AccessToken {
             const jti = crypto.randomUUID();
             const options: jwt.SignOptions = {
                 algorithm: config.jwt.algorithm as jwt.Algorithm,
@@ -137,13 +132,13 @@ export function createAuthenticationTokenService(repository: RefreshTokenReposit
 
             return {
                 accessToken: jwt.sign(
-                    { ...tokenPayload, jti }, // Include JTI in payload
+                    { ...tokenPayload, jti, ...(claims || {}) }, // Include JTI in payload
                     privateKey,
                     options
                 )
             };
         },
-        revokeRefreshToken: async function(userId: string, refreshToken: string): Promise<void> {
+        revokeRefreshToken: async function (userId: string, refreshToken: string): Promise<void> {
             const payload = await this.verifyRefreshToken(refreshToken);
 
             if (payload.sub !== userId) {
@@ -152,16 +147,16 @@ export function createAuthenticationTokenService(repository: RefreshTokenReposit
 
             await repository.deleteRefreshToken(payload.jti);
         },
-        rotateTokens: async function(refreshToken: string): Promise<{accessToken: AccessToken, refreshToken: RefreshToken}> {
+        rotateTokens: async function (refreshToken: string, claims?: Record<string, any>): Promise<{ accessToken: AccessToken, refreshToken: RefreshToken }> {
             const { sub, jti } = await this.verifyRefreshToken(refreshToken);
 
             const newRefreshToken = await this.createRefreshToken(sub);
-            
+
             const { jti: newRefreshTokenId } = await this.verifyRefreshToken(newRefreshToken.refreshToken);
-            const accessToken = this.signAccessToken({ sub, refresh_token_id: newRefreshTokenId, jti: crypto.randomUUID() });
-            
+            const accessToken = this.signAccessToken({ sub, refresh_token_id: newRefreshTokenId, jti: crypto.randomUUID() }, claims);
+
             await repository.deleteRefreshToken(jti);
-            
+
             return {
                 accessToken,
                 refreshToken: newRefreshToken

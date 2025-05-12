@@ -5,7 +5,7 @@ import { BusinessTypeRow } from './business-type.table';
 
 export interface BusinessTypeService {
     createBusinessType(businessType: CreateBusinessTypeRequest): Promise<BusinessType>;
-    getBusinessTypes(): Promise<BusinessType[]>;
+    getBusinessTypes(): Promise<{ business_types: BusinessType[] }>;
     getBusinessTypeById(id: number): Promise<BusinessType>;
     updateBusinessType(id: number, businessType: CreateBusinessTypeRequest): Promise<BusinessType>;
     deleteBusinessType(id: number): Promise<void>;
@@ -22,16 +22,16 @@ export function createBusinessTypeService(db: Kysely<Database>): BusinessTypeSer
 
             return businessTypeRowToBusinessType(createdBusinessType);
         },
-        
-        getBusinessTypes: async function (): Promise<BusinessType[]> {
+
+        getBusinessTypes: async function (): Promise<{ business_types: BusinessType[] }> {
             const businessTypes = await db
                 .selectFrom('business_type')
                 .selectAll()
                 .execute();
 
-            return businessTypes.map(businessTypeRowToBusinessType);
+            return { business_types: businessTypes.map(businessTypeRowToBusinessType) };
         },
-        
+
         getBusinessTypeById: async function (id: number): Promise<BusinessType> {
             const businessType = await db
                 .selectFrom('business_type')
@@ -41,7 +41,7 @@ export function createBusinessTypeService(db: Kysely<Database>): BusinessTypeSer
 
             return businessTypeRowToBusinessType(businessType);
         },
-        
+
         updateBusinessType: async function (id: number, updateWith: CreateBusinessTypeRequest): Promise<BusinessType> {
             const updatedBusinessType = await db
                 .updateTable('business_type')
@@ -52,7 +52,7 @@ export function createBusinessTypeService(db: Kysely<Database>): BusinessTypeSer
 
             return businessTypeRowToBusinessType(updatedBusinessType);
         },
-        
+
         deleteBusinessType: async function (id: number): Promise<void> {
             await db
                 .deleteFrom('business_type')

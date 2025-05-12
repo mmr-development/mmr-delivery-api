@@ -61,15 +61,21 @@ export const getCatalogsSchema: FastifySchema = {
   description: 'Get all catalogs for a partner',
 };
 
+export const GetCatalogsQuerySchema = Type.Object({
+  expand: Type.Optional(Type.String({
+      description: 'Comma-separated list of related entities to expand (e.g. categories,items)'
+  }))
+});
+
 export const getCatalogSchema: FastifySchema = {
   params: Type.Object({
-    id: Type.Number(),
+    partner_id: Type.Number(),
   }),
-  response: {
-    200: CatalogResponseSchema,
-  },
+  // response: {
+  //   200: CatalogResponseSchema,
+  // },
   tags: ['catalogs'],
-  description: 'Get a catalog by ID',
+  description: 'Get all catalogs for a partner',
 };
 
 export const createCatalogSchema: FastifySchema = {

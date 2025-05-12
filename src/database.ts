@@ -10,6 +10,19 @@ import { CatalogTable } from './modules/partner/catalog/catalog.table';
 import { CatalogCategoryTable } from './modules/partner/catalog/catalog-category.table';
 import { CatalogItemTable } from './modules/partner/catalog/catalog-item.table';
 import { PartnerHourTable } from './modules/partner/partner-hour.table';
+import { AddressTable } from './modules/address/address.table';
+import { StreetTable } from './modules/address/street.table';
+import { CountryTable } from './modules/address/country.table';
+import { CityTable } from './modules/address/city.table';
+import { PostalCodeTable } from './modules/address/postal-code.table';
+import { UserRoleTable } from './modules/users/user-role/user-role.table';
+import { RoleTable } from './modules/role/role.table';
+import { VehicleTypeTable } from './modules/employees/vehicle-types/vehicle-type.table';
+import { EmployeeTable } from './modules/employees/employee.table';
+import { SchedulePreferenceTable } from './modules/employees/schedule-preference/schedule-preference.table';
+import { HourPreferenceTable } from './modules/employees/hours-preference/hours-preference.table';
+import { EmployeeDocumentationTable } from './modules/employees/employee-documentation/employee-documentation.table';
+import { ChatTable, UserChatTable, MessageTable, PushTokenTable } from './modules/chat/chat.table';
 
 export interface Database {
     refresh_token: RefreshTokenTable;
@@ -24,4 +37,20 @@ export interface Database {
     catalog_category: CatalogCategoryTable;
     catalog_item: CatalogItemTable;
     partner_hour: PartnerHourTable;
+    address: AddressTable;
+    street: StreetTable;
+    country: CountryTable;
+    city: CityTable;
+    postal_code: PostalCodeTable;
+    user_role: UserRoleTable;
+    role: RoleTable;
+    vehicle_type: VehicleTypeTable;
+    employee: EmployeeTable;
+    schedule_preference: SchedulePreferenceTable;
+    hour_preference: HourPreferenceTable;
+    employee_documentation: EmployeeDocumentationTable;
+    chat: ChatTable;
+    user_chat: UserChatTable;
+    message: MessageTable;
+    push_token: PushTokenTable;
 }

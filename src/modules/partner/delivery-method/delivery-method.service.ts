@@ -6,7 +6,7 @@ import { UpdateablePartnerRow } from '../partner.table';
 
 export interface DeliveryMethodService {
     createDeliveryMethod(deliveryMethod: CreateDeliveryMethodRequest): Promise<DeliveryMethod>;
-    getDeliveryMethods(): Promise<DeliveryMethod[]>;
+    getDeliveryMethods(): Promise<{ delivery_methods: DeliveryMethod[] }>;
     getDeliveryMethodById(id: number): Promise<DeliveryMethod>;
     updateDeliveryMethod(id: number, deliveryMethod: CreateDeliveryMethodRequest): Promise<DeliveryMethod>;
     deleteDeliveryMethod(id: number): Promise<void>;
@@ -23,13 +23,13 @@ export function createDeliveryMethodService(db: Kysely<Database>): DeliveryMetho
 
             return deliveryMethodRowToDeliveryMethod(createdDeliveryMethod);
         },
-        getDeliveryMethods: async function (): Promise<DeliveryMethod[]> {
+        getDeliveryMethods: async function (): Promise<{ delivery_methods: DeliveryMethod[] }> {
             const deliveryMethods = await db
                 .selectFrom('delivery_method')
                 .selectAll()
                 .execute();
 
-            return deliveryMethods.map(deliveryMethodRowToDeliveryMethod);
+            return { delivery_methods: deliveryMethods.map(deliveryMethodRowToDeliveryMethod) };
         },
         getDeliveryMethodById: async function (id: number): Promise<DeliveryMethod> {
             const deliveryMethod = await db

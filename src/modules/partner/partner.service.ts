@@ -1,66 +1,79 @@
-// import { Database } from '../../database';
-// import { Kysely, sql } from 'kysely';
-// import { PartnerFilter, PartnerListing } from './partner.schema';
+import { Database } from '../../database';
+import { Kysely, sql } from 'kysely';
+import { PartnerFilter, PartnerListing } from './partner.schema';
 
-// export interface PartnerService {
-// getPartners(filters: PartnerFilter): Promise<PartnerListing>;
-// }
+export interface PartnerService {
+    getPartners(filters: PartnerFilter): Promise<PartnerListing>;
+}
 
-// export function createPartnerService(db: Kysely<Database>): PartnerService {
-// return {
-//     getPartners: async function (filters: PartnerFilter): Promise<PartnerListing> {
-//         let baseQuery = db.selectFrom('partner as p')
-//             .leftJoin('partner_hour as ph', (join) =>
-//                 join.onRef('ph.partner_id', '=', 'p.id')
-//                     .on('ph.day_of_week', '=', sql`EXTRACT(DOW FROM NOW())`)
-//             )
-//             .leftJoin('business_type as bt', 'p.business_type_id', 'bt.id');
-    
-//         // Apply filters
-//         if (filters.open_now) {
-//             baseQuery = baseQuery.where(eb =>
-//                 eb.between(
-//                     sql`NOW()`,
-//                     eb.ref('ph.opens_at'),
-//                     eb.ref('ph.closes_at')
-//                 )
-//             );
-//         }
-    
-//         // Get total count for pagination
-//         const countResult = await baseQuery
-//             .select(eb => eb.fn.countAll().as('count'))
-//             .executeTakeFirst();
+export function createPartnerService(db: Kysely<Database>): PartnerService {
+    return {
+        getPartners: async function (filters: PartnerFilter): Promise<PartnerListing> {
+            let cityIds: number[] = [];
+
+            if (filters.city && filters.city.trim()) {
+                const cityMainPart = filters.city.split(' ')[0].trim();
+                
+                const matchingCities = await db
+                    .selectFrom('city')
+                    .select(['id'])
+                    .where('name', 'ilike', `${cityMainPart}%`)
+                    .execute();
+                    
+                cityIds = matchingCities.map(c => c.id);
+                
+                if (cityIds.length === 0) {
+                    return { partners: [] };
+                }
+            }
         
-//         const total_count = Number(countResult?.count || 0);
-        
-//         // Apply pagination
-//         const page = filters.page || 1;
-//         const limit = filters.limit || 10;
-//         const offset = (page - 1) * limit;
-        
-//         // Get paginated results
-//         const partners = await baseQuery
-//             .select([
-//                 'p.id',
-//                 'p.name',
-//                 'p.created_at',
-//                 'p.updated_at'
-//                 'ph.opens_at',
-//                 'ph.closes_at',
-//             ])
-//             .distinct()
-//             .limit(limit)
-//             .offset(offset)
-//             .execute();
-        
-//         // Return in the expected format
-//         return {
-//             page,
-//             limit,
-//             total_count,
-//             partners: partners
-//         };
-//     }
-// }
-// }
+            // Step 2: Build the base query for partners
+            let baseQuery = db.selectFrom('partner as p')
+                .leftJoin('business_type as bt', 'p.business_type_id', 'bt.id')
+                .leftJoin('address as a', 'p.address_id', 'a.id')
+                .leftJoin('postal_code as pc', 'a.postal_code_id', 'pc.id')
+                .leftJoin('city as c', 'pc.city_id', 'c.id')
+                .leftJoin('country as co', 'c.country_id', 'co.id')
+                .leftJoin('street as s', 'a.street_id', 's.id')
+                
+            // Apply filters
+            if (cityIds.length > 0) {
+                baseQuery = baseQuery.where('c.id', 'in', cityIds);
+            }
+
+            const partners = await baseQuery
+                .selectAll()
+                .select([
+                    'p.id',
+                    'p.name',
+                    'p.business_type_id',
+                    'bt.name as business_type_name',
+                    'a.address_detail',
+                    'pc.code as postal_code',
+                    'c.name as city_name',
+                    'co.name as country_name',
+                    's.name as street_name',
+                ])
+                .execute();
+
+            const formattedPartners = partners.map((partner) => ({
+                id: partner.id,
+                name: partner.name,
+                business_type: {
+                    id: partner.business_type_id || 0,
+                    name: partner.business_type_name || ''
+                },
+                address: {
+                    id: partner.address_id || 0,
+                    address_detail: partner.address_detail || undefined,
+                    street: partner.street_name || '',
+                    city: partner.city_name || '',
+                    postal_code: partner.postal_code || '',
+                    country: partner.country_name || '',
+                }
+            }));
+
+            return { partners: formattedPartners };
+        }
+    }
+}

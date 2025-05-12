@@ -5,13 +5,23 @@ import { Static, Type } from '@sinclair/typebox';
 export const LoginCredentialsSchema = Type.Object({
     email: Type.String({
         format: 'email',
-        description: 'User email address'
+        description: 'User email address',
+        examples: ['user@example.com']
     }),
     password: Type.String({
         minLength: 8,
-        description: 'User password'
+        description: 'User password',
     })
-}, { additionalProperties: false });
+}, { 
+    additionalProperties: false,
+    description: 'Credentials required for user login'
+});
+
+export const LoginQueryParamsSchema = Type.Object({
+    client_id: Type.Optional(Type.String({
+      description: 'Client application identifier'
+    }))
+  });
 
 export const UserSchema = Type.Object({
     id: Type.Number(),
@@ -21,9 +31,15 @@ export const UserSchema = Type.Object({
 });
 
 export const LoginResponseSchema = Type.Object({
-    access_token: Type.String({ description: 'JWT access token' }),
-    refresh_token: Type.String({ description: 'JWT refresh token for obtaining a new access token' }),
-});
+    access_token: Type.String({ 
+        description: 'JWT access token',
+        examples: ['eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...']
+    }),
+    refresh_token: Type.String({ 
+        description: 'JWT refresh token for obtaining a new access token',
+        examples: ['eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...']
+    }),
+}, { description: 'Tokens returned after successful login' });
 
 export const ErrorResponseSchema = Type.Object({
     statusCode: Type.Number(),
@@ -33,9 +49,10 @@ export const ErrorResponseSchema = Type.Object({
 
 // Refresh token request
 export const RefreshTokenRequestSchema = Type.Object({
-    refresh_token: Type.String({ description: 'Refresh token received from login' })
+    refresh_token: Type.Optional(Type.String({ 
+        description: 'Refresh token received from login (not required when using HTTP-only cookies)' 
+    }))
 });
-
 // Refresh token response
 export const RefreshTokenResponseSchema = Type.Object({
     access_token: Type.String(),
@@ -44,8 +61,11 @@ export const RefreshTokenResponseSchema = Type.Object({
 
 // Logout request schema
 export const LogoutRequestSchema = Type.Object({
-    refresh_token: Type.String({ description: 'Refresh token to invalidate' })
+    refresh_token: Type.Optional(Type.String({ 
+        description: 'Refresh token to invalidate (not required when using HTTP-only cookies)' 
+    }))
 });
+
 
 // Logout response
 export const LogoutResponseSchema = Type.Object({
@@ -64,13 +84,15 @@ export type LogoutResponse = Static<typeof LogoutResponseSchema>;
 
 // Fastify schemas for routes
 export const loginSchema: FastifySchema = {
-    description: 'Authenticate user and retrieve tokens',
+    summary: 'User login',
+    description: 'Authenticate user and retrieve access and refresh tokens.',
     tags: ['Authentication'],
     body: LoginCredentialsSchema,
+    querystring: LoginQueryParamsSchema,
     response: {
         200: LoginResponseSchema,
-        400: ErrorResponseSchema,
-        401: ErrorResponseSchema
+        // 400: ErrorResponseSchema,
+        // 401: ErrorResponseSchema
     }
 };
 
