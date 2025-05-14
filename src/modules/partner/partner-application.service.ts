@@ -4,6 +4,7 @@ import { PartnerApplicationRepository } from './partner-application.repository';
 import { PartnerRow, PartnerWithRelationsRow } from './partner.table';
 import { UserService } from '../users/user.service';
 import { AddressService } from '../address';
+import { createPartnerHourRepository } from './partner-hour/partner-hour.repository';
 
 export interface PartnerApplicationService {
     submitApplication(application: PartnerApplicationRequest): Promise<Partner>;
@@ -16,6 +17,7 @@ export interface PartnerApplicationService {
 export function createPartnerApplicationService(repository: PartnerApplicationRepository, userService: UserService, addressService: AddressService): PartnerApplicationService {
     return {
         submitApplication: async function (application: PartnerApplicationRequest): Promise<Partner> {
+            console.log('Submitting partner application:');
             const user = await userService.createPartnerUser({
                 first_name: application.contact_person.first_name,
                 last_name: application.contact_person.last_name,
@@ -25,8 +27,8 @@ export function createPartnerApplicationService(repository: PartnerApplicationRe
 
             const addressId = await addressService.createAddress({
                 street: application.business.address.street,
-                addressDetail: application.business.address.address_detail,
-                postalCode: application.business.address.postal_code,
+                address_detail: application.business.address.address_detail,
+                postal_code: application.business.address.postal_code,
                 city: application.business.address.city,
                 latitude: application.business.address.latitude,
                 longitude: application.business.address.longitude,
