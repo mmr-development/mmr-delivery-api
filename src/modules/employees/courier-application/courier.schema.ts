@@ -35,6 +35,11 @@ export const PersonalDetailsSchema = Type.Object({
         longitude: Type.Optional(Type.Number())
     }),
     is_eighteen_plus: Type.Boolean(),
+    status: Type.String({
+        minLength: 1,
+        maxLength: 50,
+        default: 'pending'
+    })
 });
 
 // Updated courier application request schema
@@ -59,7 +64,14 @@ export type HoursPreference = number;
 // Vehicle type
 export type VehicleType = 'own_e_bike' | 'own_scooter' | 'own_car';
 
-// The rest of your existing schema...
+export const PaginationQuerySchema = Type.Object({
+  offset: Type.Optional(Type.Number({
+    description: 'Number of items to skip',
+  })),
+  limit: Type.Optional(Type.Number({
+    description: 'Maximum number of items to return',
+  }))
+});
 
 export const CreateCourierApplicationResponseSchema = Type.Object({
     message: Type.String(),
@@ -227,18 +239,25 @@ export const getCourierApplicationSchema: FastifySchema = {
 
 // List courier applications schema with filtering options
 export const listCourierApplicationsSchema: FastifySchema = {
-    // querystring: Type.Object({
-    //     status: Type.Optional(Type.String({
-    //         enum: ['pending', 'documents_requested', 'reviewing', 'approved', 'rejected']
-    //     })),
-    //     page: Type.Optional(Type.Number({ minimum: 1, default: 1 })),
-    //     limit: Type.Optional(Type.Number({ minimum: 1, maximum: 100, default: 10 })),
-    //     sort: Type.Optional(Type.String({ default: 'created_at' })),
-    //     order: Type.Optional(Type.String({ enum: ['asc', 'desc'], default: 'desc' }))
-    // }),
+    querystring: Type.Object({
+        status: Type.Optional(Type.String({
+            enum: ['pending', 'documents_requested', 'reviewing', 'approved', 'rejected']
+        })),
+        limit: Type.Optional(Type.Number({ minimum: 1, maximum: 100, default: 10 })),
+        offset: Type.Optional(Type.Number({ minimum: 0, default: 0 })),
+        filters: Type.Optional(Type.Object({
+            name: Type.Optional(Type.String({ minLength: 1, maxLength: 100 })),
+            user_email: Type.Optional(Type.String({ format: 'email' }))
+        })),
+    }),
     response: {
         200: Type.Object({
             applications: Type.Array(EmployeeResponseSchema),
+            pagination: Type.Optional(Type.Object({
+                total: Type.Number({ description: 'Total number of partner applications available' }),
+                offset: Type.Optional(Type.Number({ description: 'Current offset (number of applications skipped)' })),
+                limit: Type.Optional(Type.Number({ description: 'Current limit (maximum number of applications returned)' }))
+            }))
         })
     },
     tags: ['Courier Applications'],

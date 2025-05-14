@@ -6,7 +6,7 @@ import { CourierWithRelationsRow } from './courier';
 
 export interface CourierApplicationRepository {
     create(application: InsertableEmployeeRow): Promise<EmployeeRow>;
-    findAll(): Promise<EmployeeWithRelationsRow[]>;
+    findAll(options?: { offset?: number; limit?: number; filters?: { name?:string, user_email?:string, status?: string; } }): Promise<{ applications: EmployeeWithRelationsRow[]; count: number }>;
     findById(id: number): Promise<EmployeeWithRelationsRow | null>;
     update(id: number, application: UpdateableEmployeeRow): Promise<EmployeeRow>;
     delete(id: number): Promise<void>;
@@ -23,8 +23,22 @@ export function createCourierApplicationRepository(db: Kysely<Database>): Courie
 
             return insertedApplication;
         },
-        async findAll(): Promise<EmployeeWithRelationsRow[]> {
-            const applications = await db
+        async findAll(
+            options?: {
+                offset?: number;
+                limit?: number;
+                filters?: {
+                    name?: string;
+                    status?: string;
+                    user_email?: string;
+                };
+            }
+        ): Promise<{ applications: EmployeeWithRelationsRow[]; count: number }> {
+            const offset = options?.offset ?? 0;
+            const limit = options?.limit ?? null;
+            const filters = options?.filters ?? {};
+
+            const baseQuery = db
                 .selectFrom('employee')
                 .innerJoin('user', 'employee.user_id', 'user.id')
                 .innerJoin('vehicle_type', 'employee.vehicle_type_id', 'vehicle_type.id')
@@ -34,9 +48,29 @@ export function createCourierApplicationRepository(db: Kysely<Database>): Courie
                 .innerJoin('street', 'address.street_id', 'street.id')
                 .innerJoin('postal_code', 'address.postal_code_id', 'postal_code.id')
                 .innerJoin('city', 'postal_code.city_id', 'city.id')
-                .innerJoin('country', 'city.country_id', 'country.id')
+                .innerJoin('country', 'city.country_id', 'country.id');
+                
+
+            if(filters.name) {
+                const searchTerm = `%${filters.name}%`;
+                baseQuery.where((eb) => eb.or([
+                    eb('user.first_name', 'like', searchTerm),
+                    eb('user.last_name', 'like', searchTerm)
+                ]))
+            }
+            if(filters.status) {
+                baseQuery.where('employee.status', '=', filters.status);
+            }
+            if(filters.user_email) {
+                baseQuery.where('user.email', '=', filters.user_email);
+            }
+
+            const { count } = await baseQuery
+                .select(eb => eb.fn.countAll().as('count'))
+                .executeTakeFirstOrThrow();
+
+            let dataQuery = baseQuery
                 .select(eb => [
-                    // Employee fields
                     'employee.id',
                     'employee.user_id',
                     'employee.vehicle_type_id',
@@ -44,6 +78,7 @@ export function createCourierApplicationRepository(db: Kysely<Database>): Courie
                     'employee.schedule_preference_id',
                     'employee.hours_preference_id',
                     'employee.data_retention_consent',
+                    'employee.status',
                     'employee.is_eighteen_plus',
 
                     // User fields
@@ -85,9 +120,20 @@ export function createCourierApplicationRepository(db: Kysely<Database>): Courie
                             .orderBy('employee_documentation.id')
                     ).as('employee_documentation')
                 ])
+                .offset(offset);
+
+            if (limit !== null) {
+                dataQuery = dataQuery.limit(limit);
+            }
+            
+            const applications = await dataQuery
+                .orderBy('employee.id')
                 .execute();
 
-            return applications;
+            return{
+                applications,
+                count: Number(count)
+            }
         },
         async findById(id: number): Promise<EmployeeWithRelationsRow | null> {
             const applications = await db
