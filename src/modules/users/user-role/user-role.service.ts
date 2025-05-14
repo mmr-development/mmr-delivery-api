@@ -5,7 +5,7 @@ import { UserRoleRow, UserRoleWithName } from "./user-role.table";
 
 export interface UserRoleService {
     assignRoleToUser: (userId: string, roleId: string) => Promise<void>;
-    getUserRoles: (userId: string, clientId: string) => Promise<UserRoleWithName>;
+    getUserRoles: (userId: string, role: string) => Promise<UserRoleWithName>;
 }
 
 export function createUserRoleService(repository: UserRoleRepository): UserRoleService {
@@ -13,10 +13,10 @@ export function createUserRoleService(repository: UserRoleRepository): UserRoleS
         assignRoleToUser: async function (userId: string, roleId: string): Promise<void> {
             await repository.assignRoleToUser(userId, roleId);
         },
-        getUserRoles: async function (userId: string, clientId: string): Promise<UserRoleWithName> {
-            const userRole = await repository.getUserRole(userId, clientId);
+        getUserRoles: async function (userId: string, role: string): Promise<UserRoleWithName> {
+            const userRole = await repository.getUserRole(userId, role);
             if (!userRole) {
-                throw new Error(`User role not found for userId: ${userId} and clientId: ${clientId}`);
+                throw new Error(`User role not found for userId: ${userId} and role: ${role}`);
             }
             return userRole;
         },

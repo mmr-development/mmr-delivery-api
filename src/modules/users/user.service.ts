@@ -16,7 +16,7 @@ export interface UserService {
     findUserByEmail(email: string): Promise<User | undefined>;
     lockUserByEmail(trx: Transaction<Database>, email: string): Promise<User | undefined>;
     lockUserById(trx: Transaction<Database>, id: string): Promise<User | undefined>;
-    getUserRole(userId: string, clientId: string): Promise<UserRoleWithName>;
+    getUserRole(userId: string, role: string): Promise<UserRoleWithName>;
     findAllUsers(options?: { offset?: number; limit?: number, filters?: { email?: string; name?: string; phone_number?: string; } }): Promise<{ users: User[]; count?: number; }>;
 }
 
@@ -120,11 +120,11 @@ export function createUserService(repository: UserRepository, userRoleService: U
                 return userRowToUser(userRow);
             }
         },
-        getUserRole: async function (userId: string, clientId: string): Promise<UserRoleWithName> {
-            const userRole = await userRoleService.getUserRoles(userId, clientId);
+        getUserRole: async function (userId: string, role: string): Promise<UserRoleWithName> {
+            const userRole = await userRoleService.getUserRoles(userId, role);
 
             if (!userRole) {
-                throw new Error(`User role not found for userId: ${userId} and clientId: ${clientId}`);
+                throw new Error(`User role not found for userId: ${userId} and clientId: ${role}`);
             }
 
             return userRole;
