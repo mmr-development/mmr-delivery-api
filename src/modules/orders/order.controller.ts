@@ -19,9 +19,10 @@ export const orderController: FastifyPluginAsync<OrderControllerOptions> = async
     });
 
     server.get<{ Querystring: GetOrdersQuery }>('/orders/', { schema: { ...getOrdersSchema } }, async (request, reply) => {
+        const query = request.query;
         try {
-            const orders = await orderService.findOrders()
-
+            const orders = await orderService.findOrders(query);
+            server.log.info(`Order API was called to get all orders: ${JSON.stringify(orders)}`);
             return reply.code(200).send(orders)
         } catch (error) {
 

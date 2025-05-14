@@ -32,6 +32,8 @@ export type OrderWithDetailsRow = {
     status: string;
     requested_delivery_time: Date;
     tip_amount: number | string;
+    total_amount: number | string;
+    total_items: number;
     note: string | null;
     created_at: Date;
     updated_at: Date;
@@ -49,11 +51,13 @@ export type OrderWithDetailsRow = {
     // latitude: number | null;
     // longitude: number | null;
     // // Order item fields
-    catalog_item_id: number | null;
-    quantity: number | null;
-    item_note: string | null;
-    price: number | null;
-    item_name: string | null;
+   items: {
+        catalog_item_id: number;
+        quantity: number;
+        item_note: string | null;
+        price: number;
+        item_name: string;
+    }[];
     // // Payment fields
     payment_method: string | null;
   };

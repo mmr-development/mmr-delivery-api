@@ -100,27 +100,31 @@ export const GetOrderResponseSchema = Type.Object({
   requested_delivery_time: Type.Unsafe<Date>({ format: 'date-time' }),
   tip_amount: Type.Number(),
   note: Type.Optional(Type.String()),
+  total_amount: Type.Number(),
+  total_items: Type.Number(),
   items: Type.Array(GetOrderItemSchema),
-  // payment: Type.Object({
-  //   method: PaymentMethodEnum,
-  // }),
+  payment: Type.Object({
+    method: PaymentMethodEnum,
+    status: Type.Optional(OrderStatusEnum),
+  }),
   created_at: Type.Unsafe<Date>({ format: 'date-time' }),
   updated_at: Type.Unsafe<Date>({ format: 'date-time' })
 });
 
 export const getOrdersQuerySchema = Type.Object({
   partner_id: Type.Optional(Type.Number()),
+  customer_id: Type.Optional(Type.Number()),
   offset: Type.Optional(Type.Number({ default: 0, minimum: 0 })),
   limit: Type.Optional(Type.Number({ default: 10, minimum: 1, maximum: 100 }))
 });
 
 export const getOrdersResponseSchema = Type.Object({
   orders: Type.Array(GetOrderResponseSchema),
-  // pagination: Type.Object({
-  //   total: Type.Number(),
-  //   offset: Type.Number(),
-  //   limit: Type.Number(),
-  // })
+  pagination: Type.Object({
+    total: Type.Number(),
+    offset: Type.Number(),
+    limit: Type.Number(),
+  })
 });
 
 export const getOrdersSchema: FastifySchema = {

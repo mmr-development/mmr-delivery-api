@@ -15,7 +15,7 @@ export interface OrderService {
     createOrderItems(orderId: number, items: OrderItemData[]): Promise<OrderItemData[]>;
     prepareCustomerForOrder(customer: any): Promise<any>;
     processOrderItems(items: any, tipAmount?: number): Promise<any>
-    findOrders(options?: { offset?: number; limit?: number; }): Promise<any[]>;
+    findOrders(options?: { offset?: number; limit?: number; partner_id?: number, customer_id?: number }): Promise<any>;
 }
 
 export class PartnerNotFoundError extends Error { }
@@ -90,36 +90,44 @@ export function createOrderService(ordersRepository: OrdersRepository, userServi
         async processOrderItems(items, tipAmount = 0) {
             let total_amount = 0;
             const itemsWithPrices = [];
-        
+
             for (const item of items) {
                 const catalogItem = await catalogService.findCatalogItemById(item.catalog_item_id);
                 if (!catalogItem) {
                     throw new ControllerError(404, 'CatalogItemNotFound',
                         `Catalog item with ID ${item.catalog_item_id} not found`);
                 }
-        
+
                 const price = await catalogService.findCatalogItemPrice(item.catalog_item_id);
                 if (price === null) {
                     throw new ControllerError(404, 'PriceNotFound',
                         `Price for catalog item with ID ${item.catalog_item_id} not found`);
                 }
-        
+
                 total_amount += price * item.quantity;
                 itemsWithPrices.push({ ...item, price });
             }
-        
-            // Add the tip amount
+
             total_amount += Number(tipAmount) || 0;
-        
+
             return { itemsWithPrices, total_amount };
         },
-        findOrders: async function (options?: { offset?: number; limit?: number; }): Promise<any> {
-            const ordersRow = await ordersRepository.findOrders();
-        
+        findOrders: async function (options?: { offset?: number; limit?: number; partner_id?: number, customer_id?: number }): Promise<any> {
+            const limit = options?.limit
+            const offset = options?.offset
+
+            const ordersRow = await ordersRepository.findOrders(options);
+
             if (ordersRow && Array.isArray(ordersRow)) {
-                return { orders: ordersRow.map(rowToOrder) };
+                return {
+                    orders: ordersRow.map(rowToOrder),
+                    pagination: {
+                        total: ordersRow.length,
+                        limit: limit,
+                        offset: offset
+                    }
+                };
             }
-            return { orders: [] };
         },
     };
 }
@@ -145,16 +153,21 @@ export function rowToOrder(row: OrderWithDetailsRow): any {
         status: row.status,
         requested_delivery_time: row.requested_delivery_time,
         tip_amount: row.tip_amount,
+        total_amount: row.total_amount,
+        total_items: row.total_items,
         note: row.note,
-        items: row.catalog_item_id !== null ? [{
-            catalog_item_id: row.catalog_item_id,
-            quantity: row.quantity,
-            note: row.item_note,
-            price: row.price,
-            name: row.item_name
-        }] : [],
+        items: Array.isArray(row.items)
+            ? row.items.map(item => ({
+                catalog_item_id: item.catalog_item_id,
+                quantity: item.quantity,
+                note: item.item_note,
+                price: item.price,
+                name: item.item_name
+            }))
+            : [],
         payment: {
-            method: row.payment_method
+            method: row.payment_method || 'debit_card', // to do remove this default value
+            status: row.status || 'pending', // to do remove this default value
         },
         created_at: row.created_at,
         updated_at: row.updated_at,
