@@ -8,6 +8,8 @@ export const PaymentMethodEnum = Type.Union([
   Type.Literal('mobile_pay'),
 ]);
 
+export type PaymentMethod = Static<typeof PaymentMethodEnum>;
+
 export const OrderStatusEnum = Type.Union([
   Type.Literal('pending'),
   Type.Literal('confirmed'),
@@ -20,10 +22,14 @@ export const OrderStatusEnum = Type.Union([
   Type.Literal('refunded')
 ]);
 
+export type OrderStatus = Static<typeof OrderStatusEnum>;
+
 export const DeliveryTypeEnum = Type.Union([
   Type.Literal('pickup'),
   Type.Literal('delivery'),
 ]);
+
+export type DeliveryType = Static<typeof DeliveryTypeEnum>;
 
 export const CustomerSchema = Type.Object({
   first_name: Type.String(),
@@ -36,8 +42,6 @@ export const CustomerSchema = Type.Object({
     street: Type.String(),
     postal_code: Type.String(),
     address_detail: Type.Optional(Type.String()),
-    latitude: Type.Optional(Type.Number()),
-    longitude: Type.Optional(Type.Number()),
   }),
 });
 
@@ -56,6 +60,15 @@ export const GetOrderItemSchema = Type.Intersect([
     name: Type.Optional(Type.String()),
   })
 ]);
+
+export const OrderItemSchema = Type.Intersect([
+  BaseOrderItemSchema,
+  Type.Object({
+    price: Type.Optional(Type.Number())
+  })
+]);
+
+export type OrderItem = Static<typeof OrderItemSchema>;
 
 export const OrderSchema = Type.Object({
   partner_id: Type.Number(),
@@ -137,7 +150,7 @@ export const getOrdersSchema: FastifySchema = {
   summary: 'Get orders',
   security: [{ bearerAuth: [] }],
 };
-
+export type GetOrderResponse = Static<typeof GetOrderResponseSchema>;
+export type OrderDetails = GetOrderResponse
 export type GetOrdersResponse = Static<typeof getOrdersResponseSchema>;
 export type GetOrdersQuery = Static<typeof getOrdersQuerySchema>;
-

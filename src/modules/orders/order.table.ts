@@ -1,4 +1,5 @@
 import { Generated, Insertable, Selectable, Updateable } from 'kysely';
+import { DeliveryType, OrderStatus, PaymentMethod } from './order.schema';
 
 export interface OrderTable {
     id: Generated<number>;
@@ -28,8 +29,8 @@ export interface OrderItemTable {
 export type OrderWithDetailsRow = {
     order_id: number;
     partner_id: number;
-    delivery_type: string;
-    status: string;
+    delivery_type: DeliveryType;
+    status: OrderStatus;
     requested_delivery_time: Date;
     tip_amount: number | string;
     total_amount: number | string;
@@ -47,11 +48,8 @@ export type OrderWithDetailsRow = {
     city: string;
     street: string;
     postal_code: string;
-    address_detail: string | null;
-    // latitude: number | null;
-    // longitude: number | null;
-    // // Order item fields
-   items: {
+    address_detail: string;
+    items: {
         catalog_item_id: number;
         quantity: number;
         item_note: string | null;
@@ -59,8 +57,8 @@ export type OrderWithDetailsRow = {
         item_name: string;
     }[];
     // // Payment fields
-    payment_method: string | null;
-  };
+    payment_method: PaymentMethod;
+};
 
 export type OrderRow = Selectable<OrderTable>;
 export type InsertableOrderRow = Insertable<OrderTable>;

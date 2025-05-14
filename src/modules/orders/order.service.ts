@@ -1,9 +1,8 @@
 import { OrdersRepository } from './order.repository';
-import { CreatedOrder, OrderData, OrderItemData } from './order';
-import { OrderItemRow, OrderRow, OrderWithDetailsRow } from './order.table';
+import { OrderWithDetailsRow } from './order.table';
 import { UserService } from '../users/user.service';
 import { AddressService } from '../address';
-import { CreateOrderRequest, CreateOrderResponse } from './order.schema';
+import { CreateOrderRequest, CreateOrderResponse, GetOrdersQuery, OrderDetails, OrderItem } from './order.schema';
 import { CustomerService } from '../customer/customer.service';
 import { PaymentService } from '../payment/payment.service';
 import { CatalogService } from '../partner/catalog';
@@ -12,10 +11,10 @@ import { ControllerError } from '../../utils/errors';
 
 export interface OrderService {
     createOrder(order: CreateOrderRequest): Promise<CreateOrderResponse>;
-    createOrderItems(orderId: number, items: OrderItemData[]): Promise<OrderItemData[]>;
+    createOrderItems(orderId: number, items: OrderItem[]): Promise<OrderItem[]>;
     prepareCustomerForOrder(customer: any): Promise<any>;
-    processOrderItems(items: any, tipAmount?: number): Promise<any>
-    findOrders(options?: { offset?: number; limit?: number; partner_id?: number, customer_id?: number }): Promise<any>;
+    processOrderItems(items: OrderItem[], tipAmount?: number): Promise<{ itemsWithPrices: OrderItem[], total_amount: number }>;
+    findOrders(options?: GetOrdersQuery): Promise<{ orders: OrderDetails[], pagination: { total: number, limit?: number, offset?: number } }>;
 }
 
 export class PartnerNotFoundError extends Error { }
@@ -57,7 +56,7 @@ export function createOrderService(ordersRepository: OrdersRepository, userServi
                 message: "Order created successfully",
             }
         },
-        createOrderItems: async function (orderId: number, items: OrderItemData[]): Promise<OrderItemData[]> {
+        createOrderItems: async function (orderId: number, items: OrderItem[]): Promise<OrderItem[]> {
             const insertableOrderItems = items.map(item => ({
                 order_id: orderId,
                 catalog_item_id: item.catalog_item_id,
@@ -112,27 +111,39 @@ export function createOrderService(ordersRepository: OrdersRepository, userServi
 
             return { itemsWithPrices, total_amount };
         },
-        findOrders: async function (options?: { offset?: number; limit?: number; partner_id?: number, customer_id?: number }): Promise<any> {
+        findOrders: async function (options?: GetOrdersQuery): Promise<{ orders: OrderDetails[], pagination: { total: number, limit?: number, offset?: number } }> {
             const limit = options?.limit
             const offset = options?.offset
 
-            const ordersRow = await ordersRepository.findOrders(options);
+            const [ordersRow, totalOrders] = await Promise.all([
+                ordersRepository.findOrders(options),
+                ordersRepository.countOrders(options)
+            ]);
 
-            if (ordersRow && Array.isArray(ordersRow)) {
+            if (ordersRow) {
                 return {
                     orders: ordersRow.map(rowToOrder),
                     pagination: {
-                        total: ordersRow.length,
+                        total: totalOrders,
                         limit: limit,
                         offset: offset
                     }
                 };
             }
+
+            return {
+                orders: [],
+                pagination: {
+                    total: totalOrders,
+                    limit: limit,
+                    offset: offset
+                }
+            };
         },
     };
 }
 
-export function rowToOrder(row: OrderWithDetailsRow): any {
+export function rowToOrder(row: OrderWithDetailsRow): OrderDetails {
     return {
         id: row.order_id,
         partner_id: row.partner_id,
@@ -152,22 +163,22 @@ export function rowToOrder(row: OrderWithDetailsRow): any {
         delivery_type: row.delivery_type,
         status: row.status,
         requested_delivery_time: row.requested_delivery_time,
-        tip_amount: row.tip_amount,
-        total_amount: row.total_amount,
+        tip_amount: Number(row.tip_amount),
+        total_amount: Number(row.total_amount),
         total_items: row.total_items,
-        note: row.note,
+        note: row.note || undefined,
         items: Array.isArray(row.items)
             ? row.items.map(item => ({
                 catalog_item_id: item.catalog_item_id,
                 quantity: item.quantity,
-                note: item.item_note,
+                note: item.item_note || undefined,
                 price: item.price,
                 name: item.item_name
             }))
             : [],
         payment: {
-            method: row.payment_method || 'debit_card', // to do remove this default value
-            status: row.status || 'pending', // to do remove this default value
+            method: row.payment_method || 'unknown',
+            status: row.status || 'pending',
         },
         created_at: row.created_at,
         updated_at: row.updated_at,

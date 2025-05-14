@@ -1,13 +1,13 @@
 import { Kysely, sql } from 'kysely';
 import { Database } from '../../database';
 import { InsertableOrderItemRow, InsertableOrderRow, OrderItemRow, OrderRow, OrderWithDetailsRow } from './order.table';
-import { OrderItemData } from './order';
 import { GetOrdersQuery } from './order.schema';
 
 export interface OrdersRepository {
     createOrder(order: InsertableOrderRow): Promise<OrderRow>;
     createOrderItems(items: InsertableOrderItemRow[]): Promise<OrderItemRow[]>;
-    findOrders(query?: { limit?: number; offset?: number; partner_id?: number, customer_id?: number }): Promise<OrderWithDetailsRow[]>;
+    findOrders(query?: GetOrdersQuery): Promise<OrderWithDetailsRow[]>;
+    countOrders(query?: GetOrdersQuery): Promise<number>;
 }
 
 export const createOrdersRepository = (db: Kysely<Database>): OrdersRepository => {
@@ -26,7 +26,7 @@ export const createOrdersRepository = (db: Kysely<Database>): OrdersRepository =
                 .returningAll()
                 .execute();
         },
-        async findOrders(query?: { limit?: number; offset?: number; partner_id?: number, customer_id?: number }): Promise<OrderWithDetailsRow[]> {
+        async findOrders(query?: GetOrdersQuery): Promise<OrderWithDetailsRow[]> {
             let queryBuilder = db
                 .selectFrom('order as o')
                 .innerJoin('customer as c', 'o.customer_id', 'c.id')
@@ -47,7 +47,7 @@ export const createOrdersRepository = (db: Kysely<Database>): OrdersRepository =
             if (query?.limit !== undefined) {
                 queryBuilder = queryBuilder.limit(query.limit);
             }
-            
+
             if (query?.offset !== undefined) {
                 queryBuilder = queryBuilder.offset(query.offset);
             }
@@ -59,7 +59,7 @@ export const createOrdersRepository = (db: Kysely<Database>): OrdersRepository =
             if (query?.customer_id !== undefined) {
                 queryBuilder = queryBuilder.where('o.customer_id', '=', query.customer_id);
             }
-            
+
             const rawOrders = await queryBuilder
                 .select(({ fn }) => [
                     'o.id as order_id',
@@ -116,11 +116,14 @@ export const createOrdersRepository = (db: Kysely<Database>): OrdersRepository =
                     'pc.code',
                     'p.payment_method'
                 ])
-                .orderBy('o.created_at', 'desc') // Add ordering for consistent pagination results
+                .orderBy('o.created_at', 'desc')
                 .execute();
-            
+
             return rawOrders.map(order => ({
                 ...order,
+                delivery_type: order.delivery_type as "pickup" | "delivery",
+                status: order.status as "pending" | "failed" | "confirmed" | "preparing" | "ready" | "dispatched" | "delivered" | "cancelled" | "refunded",
+                payment_method: order.payment_method as "credit_card" | "debit_card" | "paypal" | "mobile_pay",
                 items: Array.isArray(order.items)
                     ? order.items.map((item: any) => ({
                         catalog_item_id: item.catalog_item_id,
@@ -131,6 +134,22 @@ export const createOrdersRepository = (db: Kysely<Database>): OrdersRepository =
                     }))
                     : [],
             }));
+        },
+        async countOrders(query?: GetOrdersQuery): Promise<number> {
+            let countQuery = db
+                .selectFrom('order as o')
+                .select(({ fn }) => [fn.countAll<number>().as('count')]);
+
+            if (query?.partner_id !== undefined) {
+                countQuery = countQuery.where('o.partner_id', '=', query.partner_id);
+            }
+
+            if (query?.customer_id !== undefined) {
+                countQuery = countQuery.where('o.customer_id', '=', query.customer_id);
+            }
+
+            const result = await countQuery.executeTakeFirstOrThrow();
+            return Number(result.count);
         }
     };
 };
