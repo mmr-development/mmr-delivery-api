@@ -39,9 +39,28 @@ export const createDeliveryMethodSchema: FastifySchema = {
   security: [{ bearerAuth: [] }]
 };
 
+export const PaginationQuerySchema = Type.Object({
+  offset: Type.Optional(Type.Number({
+    description: 'Number of items to skip',
+  })),
+  limit: Type.Optional(Type.Number({
+    description: 'Maximum number of items to return',
+  }))
+});
+
+export const DeliveryMethodListSchema = Type.Object({
+  delivery_methods: Type.Array(DeliveryMethodResponseSchema),
+  pagination: Type.Optional(Type.Object({
+    total: Type.Number({ description: 'Total number of partner applications available' }),
+    offset: Type.Optional(Type.Number({ description: 'Current offset (number of applications skipped)' })),
+    limit: Type.Optional(Type.Number({ description: 'Current limit (maximum number of applications returned)' }))
+  }))
+});
+
 export const getDeliveryMethodsSchema: FastifySchema = {
+  querystring: PaginationQuerySchema,
   response: {
-    200: DeliveryMethodObjectArrayResponseSchema
+    200: DeliveryMethodListSchema
   },
   tags: ['Delivery Methods'],
   description: 'Get all delivery methods',

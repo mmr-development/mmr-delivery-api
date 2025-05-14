@@ -6,7 +6,9 @@ import { UpdateablePartnerRow } from '../partner.table';
 
 export interface DeliveryMethodService {
     createDeliveryMethod(deliveryMethod: CreateDeliveryMethodRequest): Promise<DeliveryMethod>;
-    getDeliveryMethods(): Promise<{ delivery_methods: DeliveryMethod[] }>;
+    getDeliveryMethods(
+        options?: { offset?: number; limit?: number; }
+    ): Promise<{ delivery_methods: DeliveryMethod[], count: number }>;
     getDeliveryMethodById(id: number): Promise<DeliveryMethod>;
     updateDeliveryMethod(id: number, deliveryMethod: CreateDeliveryMethodRequest): Promise<DeliveryMethod>;
     deleteDeliveryMethod(id: number): Promise<void>;
@@ -23,13 +25,35 @@ export function createDeliveryMethodService(db: Kysely<Database>): DeliveryMetho
 
             return deliveryMethodRowToDeliveryMethod(createdDeliveryMethod);
         },
-        getDeliveryMethods: async function (): Promise<{ delivery_methods: DeliveryMethod[] }> {
-            const deliveryMethods = await db
+        async getDeliveryMethods(
+            options?: { 
+                offset?: number; 
+                limit?: number; 
+            }): Promise<{ delivery_methods: DeliveryMethod[]; count: number}> {
+            const offset = options?.offset ?? 0;
+            const limit = options?.limit ?? null;
+
+            const {count} = await db
+                .selectFrom('delivery_method')
+                .select(eb => eb.fn.countAll().as('count'))
+                .executeTakeFirstOrThrow();
+
+            let query = db
                 .selectFrom('delivery_method')
                 .selectAll()
-                .execute();
+                .orderBy('id', 'asc')
+                .offset(offset);
 
-            return { delivery_methods: deliveryMethods.map(deliveryMethodRowToDeliveryMethod) };
+            if(limit != null) {
+                query = query.limit(limit);
+            }
+
+            const deliveryMethods = await query.execute();
+
+            return {
+                delivery_methods: deliveryMethods.map(deliveryMethodRowToDeliveryMethod),
+                count: Number(count),
+            };
         },
         getDeliveryMethodById: async function (id: number): Promise<DeliveryMethod> {
             const deliveryMethod = await db
