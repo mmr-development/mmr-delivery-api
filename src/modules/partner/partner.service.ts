@@ -1,10 +1,12 @@
 import { Database } from '../../database';
 import { Kysely, sql } from 'kysely';
 import { PartnerFilter, PartnerListing } from './partner.schema';
+import { PartnerRow } from './partner.table';
 
 export interface PartnerService {
     getPartners(filters: PartnerFilter): Promise<PartnerListing>;
     findPartnerByUserId(userId: string): Promise<any>;
+    findPartnerById(id: number): Promise<PartnerRow | undefined>;
 }
 
 export function createPartnerService(db: Kysely<Database>): PartnerService {
@@ -80,6 +82,15 @@ export function createPartnerService(db: Kysely<Database>): PartnerService {
             const partner = await db
                 .selectFrom('partner')
                 .where('user_id', '=', userId)
+                .selectAll()
+                .executeTakeFirst();
+
+            return partner;
+        },
+        findPartnerById: async function (id: number): Promise<PartnerRow | undefined> {
+            const partner = await db
+                .selectFrom('partner')
+                .where('id', '=', id)
                 .selectAll()
                 .executeTakeFirst();
 

@@ -26,6 +26,7 @@ import { ChatTable, UserChatTable, MessageTable, PushTokenTable } from './module
 import { DeliveryTrackingTable } from './modules/delivery-tracking/delivery-tracking.table';
 import { OrderItemTable, OrderTable } from './modules/orders/order.table';
 import { CustomerTable } from './modules/customer/customer.table';
+import { PaymentTable } from './modules/payment/payment.table';
 
 export interface Database {
     refresh_token: RefreshTokenTable;
@@ -60,4 +61,5 @@ export interface Database {
     order: OrderTable;
     order_item: OrderItemTable;
     customer: CustomerTable;
+    payment: PaymentTable;
 }

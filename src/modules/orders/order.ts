@@ -1,15 +1,3 @@
-import { PaymentMethod } from "../../payment/payment.table";
-
-export type OrderStatus =
-  | 'pending'
-  | 'confirmed'
-  | 'preparing'
-  | 'ready'
-  | 'dispatched'
-  | 'delivered'
-  | 'cancelled'
-  | 'failed'
-  | 'refunded';
 
 export type OrderDeliveryType = 'pickup' | 'delivery';
 
@@ -27,7 +15,7 @@ export interface OrderData {
   export interface OrderItemData {
     catalog_item_id: number;
     quantity: number;
-    price: number;
+    price?: number;
     note?: string;
   }
   
@@ -53,37 +41,4 @@ export interface OrderData {
     price: number;
     created_at: string;
     updated_at: string;
-  }
-
-  export interface CreateOrderRequest {
-    customer: {
-      first_name: string;
-      last_name: string;
-      email: string;
-      phone_number: string;
-      address: {
-        country: string;
-        country_iso: string;
-        city: string;
-        street: string;
-        postal_code: string;
-        address_detail?: string;
-        latitude?: number;
-        longitude?: number;
-      };
-    };
-    order: {
-      partner_id: number;
-      delivery_type: 'pickup' | 'delivery';
-      payment_method: PaymentMethod;
-      requested_delivery_time: Date;
-      tip_amount?: string | number;
-      customer_note?: string;
-      order_status?: string;
-      items: Array<{
-        catalog_item_id: number;
-        quantity: number;
-        note?: string;
-      }>;
-    };
   }

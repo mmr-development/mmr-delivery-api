@@ -17,11 +17,20 @@ export type SignInMethodApiErrors =
   | 'InvalidRefreshToken'
   | 'RefreshTokenUserIdMismatch';
 
+export type PartnerApiErrors =
+  | 'PartnerNotFound';
+
+ export type CatalogApiErrors =
+  | 'CatalogItemNotFound'
+  | 'PriceNotFound';
+
 export type ErrorCode =
   | 'UnknownError'
   | AuthenticationErrors
   | UserApiErrors
-  | SignInMethodApiErrors;
+  | SignInMethodApiErrors
+  | CatalogApiErrors
+  | PartnerApiErrors;
 
 export type ErrorStatus = 400 | 401 | 403 | 404 | 409 | 500;
 

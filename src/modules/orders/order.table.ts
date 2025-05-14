@@ -19,7 +19,7 @@ export interface OrderItemTable {
     order_id: number;
     catalog_item_id: number;
     quantity: number;
-    price: string | number;
+    price: number;
     note: string | null;
     created_at: Generated<Date>;
     updated_at: Generated<Date>;

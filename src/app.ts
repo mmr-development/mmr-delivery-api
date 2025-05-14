@@ -39,8 +39,8 @@ import multipart from '@fastify/multipart';
 import { createOrderService } from './modules/orders/order.service';
 import { createOrdersRepository } from './modules/orders/order.repository';
 import { createCustomerRepository, createCustomerService } from './modules/customer';
-import { createPaymentService } from './payment/payment.service';
-import { createPaymentRepository } from './payment/payment.repository';
+import { createPaymentService } from './modules/payment/payment.service';
+import { createPaymentRepository } from './modules/payment/payment.repository';
 
 export interface AppOptions {
     config: typeof config;
@@ -150,12 +150,7 @@ export async function buildApp(fastify: FastifyInstance, opts: AppOptions) {
     });
 
     fastify.register(orderController, {
-        userService: createUserService(createUserRepository(db), createUserRoleService(createUserRoleRepository(db))),
-        addressService: createAddressService(createAddressRepository(db)),
-        customerService: createCustomerService(createCustomerRepository(db)),
-        orderService: createOrderService(createOrdersRepository(db)),
-        catalogService: createCatalogService(db),
-        paymentService: createPaymentService(createPaymentRepository(db)),
+        orderService: createOrderService(createOrdersRepository(db), createUserService(createUserRepository(db), createUserRoleService(createUserRoleRepository(db))), createAddressService(createAddressRepository(db)), createCustomerService(createCustomerRepository(db)), createPaymentService(createPaymentRepository(db)), createCatalogService(db), createPartnerService(db)),
         prefix: '/v1',
     })
 

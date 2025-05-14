@@ -37,4 +37,17 @@ export const userController: FastifyPluginAsync<UserControllerOptions> = async f
 
         return reply.code(200).send(user);
     });
+
+    server.get<{ Querystring: { q: string } }>('/address-autocomplete', { schema: { tags: ['Dawa']}}, async (request, reply) => {
+        const { query } = request;
+        const { q } = query as { q?: string;};
+        console.log('Query:', query);
+        const response = await fetch(`https://api.dataforsyningen.dk/autocomplete?q=${q}`);
+        console.log('Response:', response);
+        if (!response.ok) {
+            return reply.code(500).send({ message: 'Error fetching address data' });
+        }
+        const data = await response.json();
+        return reply.code(200).send(data);
+    })
 }

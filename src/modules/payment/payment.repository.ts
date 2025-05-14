@@ -1,6 +1,6 @@
 import { PaymentRow, PaymentStatus, PaymentMethod, InsertablePaymentRow } from './payment.table';
 import { Kysely } from 'kysely';
-import { Database } from '../database';
+import { Database } from '../../database';
 
 
 export interface PaymentRepository {

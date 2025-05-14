@@ -6,8 +6,8 @@ export interface AddressService {
 
 export interface AddressInput {
     street: string;
-    addressDetail?: string;
-    postalCode: string;
+    address_detail?: string;
+    postal_code: string;
     city: string;
     country: string;
     countryIso?: string;
@@ -21,11 +21,11 @@ export function createAddressService(repository: AddressRepository): AddressServ
             const countryId = await repository.findOrCreateCountry(address.country, address.countryIso);
             const cityId = await repository.findOrCreateCity(address.city, countryId);
             const streetId = await repository.findOrCreateStreet(address.street, cityId);
-            const postalCodeId = await repository.findOrCreatePostalCode(address.postalCode, cityId);
+            const postalCodeId = await repository.findOrCreatePostalCode(address.postal_code, cityId);
 
             const addressId = await repository.findOrCreateAddress(
                 streetId,
-                address.addressDetail || '',
+                address.address_detail || '',
                 postalCodeId,
                 address.latitude || 0,
                 address.longitude || 0
