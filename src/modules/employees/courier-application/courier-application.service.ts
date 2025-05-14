@@ -7,7 +7,11 @@ import { CourierApplicationRequest, CreateCourierApplicationResponse, EmployeeRe
 
 export interface CourierApplicationService {
     submitApplication(application: CourierApplicationRequest): Promise<CreateCourierApplicationResponse>;
-    findAllApplications(): Promise<{ applications: EmployeeResponse[] }>;
+    findAllApplications(options?: { offset?: number; limit?: number; filters?: {
+            status?: string;
+            name?: string;
+            user_email?: string;
+        }}): Promise<{ applications: EmployeeResponse[], count: number }>;
     findApplicationById(id: number): Promise<EmployeeResponse | null>;
     updateApplication(id: number, application: EmployeeRow): Promise<EmployeeRow>;
     deleteApplication(id: number): Promise<void>;
@@ -41,6 +45,7 @@ export function createCourierApplicationService(repository: CourierApplicationRe
                 hours_preference_id: application.hours_preference,
                 data_retention_consent: application.data_retention_consent,
                 is_eighteen_plus: application.personal_details.is_eighteen_plus,
+                status: application.personal_details.status,
             });
 
             return {
@@ -50,10 +55,19 @@ export function createCourierApplicationService(repository: CourierApplicationRe
                 next_steps: "We will review your application shortly."
             };
         },
-        findAllApplications: async function (): Promise<{ applications: EmployeeResponse[] }> {
-            const applications = await repository.findAll();
+        findAllApplications: async function (options?: {
+            offset?: number;
+            limit?: number;
+            filters?: {
+                name?: string;
+                user_email?: string;
+                status?: string; };
+        }): Promise<{ applications: EmployeeResponse[], count: number }> {
+            const {applications, count} = await repository.findAll(options);
+            const response = applications.map(courierRowToCourier);
             return {
-                applications: applications.map(courierRowToCourier)
+                applications: response,
+                count: count
             };
         },
         findApplicationById: async function (id: number): Promise<EmployeeResponse | null> {

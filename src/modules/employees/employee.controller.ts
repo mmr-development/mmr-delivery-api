@@ -27,10 +27,27 @@ export const employeeController: FastifyPluginAsync<EmployeesControllerOptions> 
         }
     });
 
-    server.get('/courier-applications/', { schema: { ...listCourierApplicationsSchema }, preHandler: [server.authenticate, server.guard.role('admin')] }, async (request, reply) => {
+    server.get<{
+        Querystring: { offset?: number; limit?: number; status?: string; name?: string; user_email?: string }
+    }>('/courier-applications/', 
+        { schema: { ...listCourierApplicationsSchema },
+         preHandler: [server.authenticate, server.guard.role('admin')] },
+        async (request, reply) => {
+        const { offset, limit, status, name, user_email } = request.query;
         try {
-            const applications = await courierApplicationService.findAllApplications();
-            reply.status(200).send(applications);
+            const {applications, count} = await courierApplicationService.findAllApplications(
+                { offset, limit, filters: { status, name, user_email } }
+            );
+            console.log('Fetched applications:', applications);
+            console.log('Total count:', count);
+            reply.status(200).send({
+                applications,
+                pagination: {
+                    total: count,
+                    offset,
+                    limit
+                }
+            });
         } catch (error) {
             console.error('Error fetching applications:', error);
             reply.status(500).send({ message: 'Internal server error' });
