@@ -24,14 +24,14 @@ export function createUserRoleRepository(db: Kysely<Database>): UserRoleReposito
                 })
                 .execute();
         },
-        getUserRole: async function (userId: string, roleName: string): Promise<UserRoleWithName | undefined> {
+        getUserRole: async function (userId: string, role: string): Promise<UserRoleWithName | undefined> {
             const userRole = await db
                 .selectFrom('user_role')
                 .innerJoin('role', 'user_role.role_id', 'role.id')
                 .selectAll('user_role')
                 .select('role.name as role_name') 
                 .where('user_role.user_id', '=', userId)
-                .where('role.name', '=', roleName)
+                .where('role.name', '=', role)
                 .executeTakeFirst();
 
             return userRole;

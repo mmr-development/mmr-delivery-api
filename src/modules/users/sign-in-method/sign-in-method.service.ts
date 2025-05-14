@@ -89,7 +89,7 @@ export function createSignInMethodService(authenticationTokenService: Authentica
 
             const userRole = await userService.getUserRole(user.id, method.client_id);
 
-            const refreshToken = await authenticationTokenService.createRefreshToken(user.id);
+            const refreshToken = await authenticationTokenService.createRefreshToken(user.id, userRole.role_name);
             const accessToken = await authenticationTokenService.createAccessToken(refreshToken.refreshToken, {
                 role: userRole.role_name,
             });

@@ -12,7 +12,7 @@ export class AccessTokenExpiredError extends AccessTokenError { }
 export class RefreshTokenUserIdMismatchError extends Error { }
 
 export interface AuthenticationTokenService {
-    createRefreshToken(sub: string): Promise<RefreshToken>;
+    createRefreshToken(sub: string, role: string): Promise<RefreshToken>;
     signRefreshToken(tokenPayload: RefreshTokenPayload): RefreshToken;
     createAccessToken(refreshToken: string, claims?: Record<string, any>): Promise<AccessToken>;
     verifyRefreshToken(token: string): Promise<RefreshTokenPayload>;
@@ -40,6 +40,7 @@ interface RefreshTokenPayload {
     sub: string;
     jti: string;
     is_refresh_token: true;
+    role: string;
 }
 
 export function createAuthenticationTokenService(repository: RefreshTokenRepository): AuthenticationTokenService {
@@ -58,13 +59,14 @@ export function createAuthenticationTokenService(repository: RefreshTokenReposit
     }
 
     return {
-        async createRefreshToken(userId: string): Promise<RefreshToken> {
+        async createRefreshToken(userId: string, role: string): Promise<RefreshToken> {
             const { refresh_token_id } = await repository.insertRefreshToken(userId);
 
             return this.signRefreshToken({
                 sub: userId,
                 jti: refresh_token_id,
                 is_refresh_token: true,
+                role: role,
             });
         },
         signRefreshToken(tokenPayload: RefreshTokenPayload): RefreshToken {
@@ -111,6 +113,7 @@ export function createAuthenticationTokenService(repository: RefreshTokenReposit
                 sub: payload.sub,
                 jti: payload.jti,
                 is_refresh_token: true,
+                role: payload.role,
             }
         },
         verifyToken(token: string): string | jwt.JwtPayload {
@@ -148,9 +151,9 @@ export function createAuthenticationTokenService(repository: RefreshTokenReposit
             await repository.deleteRefreshToken(payload.jti);
         },
         rotateTokens: async function (refreshToken: string, claims?: Record<string, any>): Promise<{ accessToken: AccessToken, refreshToken: RefreshToken }> {
-            const { sub, jti } = await this.verifyRefreshToken(refreshToken);
+            const { sub, jti, role } = await this.verifyRefreshToken(refreshToken);
 
-            const newRefreshToken = await this.createRefreshToken(sub);
+            const newRefreshToken = await this.createRefreshToken(sub, role);
 
             const { jti: newRefreshTokenId } = await this.verifyRefreshToken(newRefreshToken.refreshToken);
             const accessToken = this.signAccessToken({ sub, refresh_token_id: newRefreshTokenId, jti: crypto.randomUUID() }, claims);

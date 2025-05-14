@@ -38,7 +38,6 @@ export interface PartnerControllerOptions {
 export const partnerController: FastifyPluginAsync<PartnerControllerOptions> = async function (server, { partnerApplicationService, deliveryMethodService, businessTypeService, partnerService, partnerHourService }) {
     server.post<{ Body: PartnerApplicationRequest }>('/partner-applications/', { schema: { ...partnerApplicationSchema } }, async (request, reply) => {
         try {
-            console.log('request.body', request.body);
             await partnerApplicationService.submitApplication(request.body);
             return reply.code(201).send({
                 message: 'Partner application submitted successfully',

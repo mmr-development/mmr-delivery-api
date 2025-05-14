@@ -93,11 +93,7 @@ export const authenticationController: FastifyPluginAsync<AuthenticationControll
         });
     })
 
-    server.post<{ Body: { refresh_token?: string }, Querystring: { client_id: string } }>('/auth/refresh-token/', { schema: { ...refreshTokenSchema } }, async (request, reply) => {
-        
-        console.log("Refresh token request received");
-        console.log(request.cookies);
-
+    server.post<{ Body: { refresh_token?: string }}>('/auth/refresh-token/', { schema: { ...refreshTokenSchema } }, async (request, reply) => {
         let refreshToken = request.cookies.refresh_token;
         if (!refreshToken && request.body.refresh_token) {
             refreshToken = request.body.refresh_token;
@@ -108,13 +104,11 @@ export const authenticationController: FastifyPluginAsync<AuthenticationControll
         }
 
         const payload = await authenticationTokenService.verifyRefreshToken(refreshToken);
-        const userRole = await userService.getUserRole(payload.sub, request.query.client_id);
+        const userRole = await userService.getUserRole(payload.sub, payload.role);
     
         const { accessToken, refreshToken: newRefreshToken } = await authenticationTokenService.rotateTokens(refreshToken, {
             role: userRole.role_name,
         });
-
-        // Set HTTP-only cookie for new refresh token
 
         reply.setCookie('refresh_token', newRefreshToken.refreshToken, {
             httpOnly: true,
