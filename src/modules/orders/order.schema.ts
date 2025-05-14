@@ -41,20 +41,29 @@ export const CustomerSchema = Type.Object({
   }),
 });
 
-// OrderSchema
+export const BaseOrderItemSchema = Type.Object({
+  catalog_item_id: Type.Number(),
+  quantity: Type.Number({ minimum: 1 }),
+  note: Type.Optional(Type.String()),
+});
+
+export const CreateOrderItemSchema = BaseOrderItemSchema;
+
+export const GetOrderItemSchema = Type.Intersect([
+  BaseOrderItemSchema,
+  Type.Object({
+    price: Type.Number(),
+    name: Type.Optional(Type.String()),
+  })
+]);
+
 export const OrderSchema = Type.Object({
   partner_id: Type.Number(),
   delivery_type: DeliveryTypeEnum,
   requested_delivery_time: Type.Unsafe<Date>({ format: 'date-time' }),
   tip_amount: Type.Number(),
-  customer_note: Type.Optional(Type.String()),
-  items: Type.Array(
-    Type.Object({
-      catalog_item_id: Type.Number(),
-      quantity: Type.Number(),
-      note: Type.Optional(Type.String()),
-    }),
-  ),
+  note: Type.Optional(Type.String()),
+  items: Type.Array(CreateOrderItemSchema),
 });
 
 export const CreateOrderSchema = Type.Object({
@@ -76,5 +85,55 @@ export const createOrderSchema: FastifySchema = {
   body: CreateOrderSchema,
   response: {
     201: CreateOrderResponseSchema,
-  }
+  },
+  tags: ['Orders'],
+  description: 'Create a new order',
+  summary: 'Create order',
 };
+
+export const GetOrderResponseSchema = Type.Object({
+  id: Type.Number(),
+  partner_id: Type.Number(),
+  customer: CustomerSchema,
+  delivery_type: DeliveryTypeEnum,
+  status: OrderStatusEnum,
+  requested_delivery_time: Type.Unsafe<Date>({ format: 'date-time' }),
+  tip_amount: Type.Number(),
+  note: Type.Optional(Type.String()),
+  items: Type.Array(GetOrderItemSchema),
+  // payment: Type.Object({
+  //   method: PaymentMethodEnum,
+  // }),
+  created_at: Type.Unsafe<Date>({ format: 'date-time' }),
+  updated_at: Type.Unsafe<Date>({ format: 'date-time' })
+});
+
+export const getOrdersQuerySchema = Type.Object({
+  partner_id: Type.Optional(Type.Number()),
+  offset: Type.Optional(Type.Number({ default: 0, minimum: 0 })),
+  limit: Type.Optional(Type.Number({ default: 10, minimum: 1, maximum: 100 }))
+});
+
+export const getOrdersResponseSchema = Type.Object({
+  orders: Type.Array(GetOrderResponseSchema),
+  // pagination: Type.Object({
+  //   total: Type.Number(),
+  //   offset: Type.Number(),
+  //   limit: Type.Number(),
+  // })
+});
+
+export const getOrdersSchema: FastifySchema = {
+  querystring: getOrdersQuerySchema,
+  response: {
+    200: getOrdersResponseSchema
+  },
+  tags: ['Orders'],
+  description: 'Get orders for a partner',
+  summary: 'Get orders',
+  security: [{ bearerAuth: [] }],
+};
+
+export type GetOrdersResponse = Static<typeof getOrdersResponseSchema>;
+export type GetOrdersQuery = Static<typeof getOrdersQuerySchema>;
+

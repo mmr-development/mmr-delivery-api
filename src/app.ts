@@ -6,7 +6,7 @@ import { createSignInMethodService, createSignInMethodRepository, signInMethodCo
 import { jwksController, createJwksService } from './modules/jwks';
 import { userController, createUserService, createUserRepository } from './modules/users';
 import { Database } from './database';
-import { Kysely, PostgresDialect } from 'kysely';
+import { DeduplicateJoinsPlugin, Kysely, PostgresDialect } from 'kysely';
 import cors from '@fastify/cors';
 import { Pool } from 'pg';
 import { config } from './config';
@@ -53,7 +53,8 @@ export async function buildApp(fastify: FastifyInstance, opts: AppOptions) {
         dialect: new PostgresDialect({
             pool: async () => new Pool(config.database),
         }),
-        log: ['query']
+        log: ['query'],
+        plugins: [new DeduplicateJoinsPlugin()],
     });
 
     fastify.register(cors, {

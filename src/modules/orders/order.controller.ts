@@ -1,15 +1,16 @@
 import { FastifyPluginAsync } from 'fastify';
-import { CreateOrderRequest, createOrderSchema } from './order.schema';
-import { OrderService, PartnerNotFoundError } from './order.service';
+import { CreateOrderRequest, createOrderSchema, GetOrdersQuery, getOrdersSchema } from './order.schema';
+import { OrderService } from './order.service';
 
 export interface OrderControllerOptions {
     orderService: OrderService
 }
 
 export const orderController: FastifyPluginAsync<OrderControllerOptions> = async function (server, { orderService }) {
-    server.post<{ Body: CreateOrderRequest }>('/orders/', { schema: { ...createOrderSchema, tags: ['Orders'] } }, async (request, reply) => {
+    server.post<{ Body: CreateOrderRequest }>('/orders/', { schema: { ...createOrderSchema } }, async (request, reply) => {
         const orderData = request.body;
         try {
+            server.log.info(`Order API was called to add a new order: ${JSON.stringify(orderData)}`);
             const createOrder = await orderService.createOrder(orderData);
             return reply.code(201).send(createOrder);
         } catch (error) {
@@ -17,15 +18,14 @@ export const orderController: FastifyPluginAsync<OrderControllerOptions> = async
         }
     });
 
-    server.get('/orders/', { schema: {} }, async (request, reply) => {
-        const { offset, limit } = request.query as { offset?: number; limit?: number; };
+    server.get<{ Querystring: GetOrdersQuery }>('/orders/', { schema: { ...getOrdersSchema } }, async (request, reply) => {
+        try {
+            const orders = await orderService.findOrders()
 
-        const result = await orderService.findOrders({ offset, limit });
+            return reply.code(200).send(orders)
+        } catch (error) {
 
-        return reply.send({
-            orders: result.orders,
-            count: result.count,
-        });
+        }
     });
 
     // server.get('/orders/:id', { schema: { ...getOrderSchema } }, async (request, reply) => {

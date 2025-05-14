@@ -158,6 +158,7 @@ export function createCourierApplicationRepository(db: Kysely<Database>): Courie
                     'employee.hours_preference_id',
                     'employee.data_retention_consent',
                     'employee.is_eighteen_plus',
+                    'employee.status',
 
                     // User fields
                     'user.first_name',

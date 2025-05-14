@@ -29,8 +29,8 @@ export function createCourierApplicationService(repository: CourierApplicationRe
 
             const addressId = await addressService.createAddress({
                 street: application.personal_details.address.street,
-                addressDetail: application.personal_details.address.address_detail,
-                postalCode: application.personal_details.address.postal_code,
+                address_detail: application.personal_details.address.address_detail,
+                postal_code: application.personal_details.address.postal_code,
                 city: application.personal_details.address.city,
                 country: application.personal_details.address.country,
                 latitude: application.personal_details.address.latitude,
