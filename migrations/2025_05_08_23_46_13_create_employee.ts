@@ -10,6 +10,8 @@ export async function up(db: Kysely<any>): Promise<void> {
         .addColumn('hours_preference_id', 'integer', (col) => col.references('hour_preference.id'))
         .addColumn('data_retention_consent', 'boolean', (col) => col.defaultTo(false))
         .addColumn('is_eighteen_plus', 'boolean', (col) => col.defaultTo(false))
+        .addColumn('status', 'varchar(50)', (col) =>
+            col.notNull().defaultTo('pending').check(sql`status IN ('pending', 'reviewing', 'approved', 'rejected', 'suspended')`))
         .addColumn('created_at', 'timestamp', (col) => col.defaultTo(sql`now()`))
         .addColumn('updated_at', 'timestamp', (col) => col.defaultTo(sql`now()`))
         .execute();

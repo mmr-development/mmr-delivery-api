@@ -12,6 +12,8 @@ export interface PartnerService {
 export function createPartnerService(db: Kysely<Database>): PartnerService {
     return {
         getPartners: async function (filters: PartnerFilter): Promise<PartnerListing> {
+            let limit = filters.limit ?? 0;
+            let offset = filters.offset ?? 0;
             let cityIds: number[] = [];
 
             if (filters.city && filters.city.trim()) {
@@ -37,7 +39,7 @@ export function createPartnerService(db: Kysely<Database>): PartnerService {
                 .leftJoin('postal_code as pc', 'a.postal_code_id', 'pc.id')
                 .leftJoin('city as c', 'pc.city_id', 'c.id')
                 .leftJoin('country as co', 'c.country_id', 'co.id')
-                .leftJoin('street as s', 'a.street_id', 's.id')
+                .leftJoin('street as s', 'a.street_id', 's.id');
                 
             // Apply filters
             if (cityIds.length > 0) {
@@ -57,6 +59,8 @@ export function createPartnerService(db: Kysely<Database>): PartnerService {
                     'co.name as country_name',
                     's.name as street_name',
                 ])
+                .offset(offset)
+                .limit(limit > 0 ? limit : null)
                 .execute();
 
             const formattedPartners = partners.map((partner) => ({
@@ -73,10 +77,17 @@ export function createPartnerService(db: Kysely<Database>): PartnerService {
                     city: partner.city_name || '',
                     postal_code: partner.postal_code || '',
                     country: partner.country_name || '',
-                }
+                },
             }));
 
-            return { partners: formattedPartners };
+            return { 
+                partners: formattedPartners,
+                pagination: {
+                    total: formattedPartners.length,
+                    offset: filters.offset || 0,
+                    limit: filters.limit || 0,
+                }
+            };
         },
         findPartnerByUserId: async function (userId: string): Promise<any> {
             const partner = await db

@@ -115,9 +115,22 @@ export const partnerController: FastifyPluginAsync<PartnerControllerOptions> = a
         return reply.code(201).send(deliveryMethod);
     });
 
-    server.get('/partners/delivery-methods/', { schema: { ...getDeliveryMethodsSchema, tags: ['Partner Delivery Methods'] }, }, async (request, reply) => {
-        const deliveryMethods = await deliveryMethodService.getDeliveryMethods();
-        return reply.code(200).send(deliveryMethods);
+    server.get<{
+        Querystring: { offset?: number; limit?: number; }
+    }>('/partners/delivery-methods/', { schema: { ...getDeliveryMethodsSchema, tags: ['Partner Delivery Methods'] }, }, async (request, reply) => {
+        const { offset, limit } = request.query;
+        const {delivery_methods, count} = await deliveryMethodService.getDeliveryMethods({
+            offset,
+            limit,
+        });
+        return reply.code(200).send({
+            delivery_methods,
+            pagination: {
+                total: count,
+                offset,
+                limit
+            }
+        });
     });
 
     server.get<{ Params: { id: number } }>('/partners/delivery-methods/:id/', { schema: { ...getDeliveryMethodByIdSchema, tags: ['Partner Delivery Methods'] }, }, async (request, reply) => {
@@ -140,9 +153,22 @@ export const partnerController: FastifyPluginAsync<PartnerControllerOptions> = a
         return reply.code(201).send(businessType);
     });
 
-    server.get('/partners/business-types/', { schema: { ...getBusinessTypesSchema, tags: ['Partner Business Types'] } }, async (request, reply) => {
-        const businessTypes = await businessTypeService.getBusinessTypes();
-        return reply.code(200).send(businessTypes);
+    server.get<{
+        Querystring: { offset?: number; limit?: number; }
+    }>('/partners/business-types/', { schema: { ...getBusinessTypesSchema, tags: ['Partner Business Types'] } }, async (request, reply) => {
+        const { offset, limit } = request.query;
+        const {business_types, count} = await businessTypeService.getBusinessTypes({
+            offset,
+            limit,
+        });
+        return reply.code(200).send({
+            business_types: business_types,
+            pagination: {
+                total: count,
+                offset,
+                limit
+            }
+        });
     });
 
     server.get<{ Params: { id: number } }>('/partners/business-types/:id/', { schema: { ...getBusinessTypeByIdSchema, tags: ['Partner Business Types'] } }, async (request, reply) => {

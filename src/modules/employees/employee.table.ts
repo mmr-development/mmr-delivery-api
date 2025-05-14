@@ -9,6 +9,7 @@ export interface EmployeeTable {
     hours_preference_id: number;
     data_retention_consent: boolean;
     is_eighteen_plus: boolean;
+    status: string;
     created_at: Generated<Date>;
     updated_at: Generated<Date>;
 }
@@ -23,6 +24,7 @@ export interface EmployeeWithRelationsRow  {
     hours_preference_name: string;
     data_retention_consent: boolean;
     schedule_preference_name: string;
+    status: string;
     is_eighteen_plus: boolean;
     created_at?: string;
     updated_at?: string;

@@ -39,9 +39,28 @@ export const createBusinessTypeSchema: FastifySchema = {
   security: [{ bearerAuth: [] }]
 };
 
+export const PaginationQuerySchema = Type.Object({
+  offset: Type.Optional(Type.Number({
+    description: 'Number of items to skip',
+  })),
+  limit: Type.Optional(Type.Number({
+    description: 'Maximum number of items to return',
+  }))
+});
+
+export const BusinessTypeListSchema = Type.Object({
+  business_types: Type.Array(BusinessTypeResponseSchema),
+  pagination: Type.Optional(Type.Object({
+    total: Type.Number({ description: 'Total number of partner applications available' }),
+    offset: Type.Optional(Type.Number({ description: 'Current offset (number of applications skipped)' })),
+    limit: Type.Optional(Type.Number({ description: 'Current limit (maximum number of applications returned)' }))
+  }))
+});
+
 export const getBusinessTypesSchema: FastifySchema = {
+  querystring: PaginationQuerySchema,
   response: {
-    200: BusinessTypeObjectArrayResponseSchema
+    200: BusinessTypeListSchema
   },
   tags: ['Business Types'],
   description: 'Get all business types',

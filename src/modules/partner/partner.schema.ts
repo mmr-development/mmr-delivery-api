@@ -286,27 +286,12 @@ export const PartnerFilterSchema = Type.Object({
   city: Type.Optional(Type.String()),
   postal_code: Type.Optional(Type.String()),
   country: Type.Optional(Type.String()),
-  // open_now: Type.Optional(Type.Boolean()),
-  // is_new: Type.Optional(Type.Boolean()),
-  // free_delivery: Type.Optional(Type.Boolean()),
-  // min_hygiene_rating: Type.Optional(Type.Number()),
-  // max_delivery_fee: Type.Optional(Type.Number()),
-  // min_rating: Type.Optional(Type.Number()),
-  // has_offers: Type.Optional(Type.Boolean()),
-  // dietary_options: Type.Optional(Type.Array(Type.String())),
-  // cuisines: Type.Optional(Type.Array(Type.String())),
-  // search: Type.Optional(Type.String()),
-  // latitude: Type.Optional(Type.Number()),
-  // longitude: Type.Optional(Type.Number()),
-  // radius: Type.Optional(Type.Number()),
-  // sort_by: Type.Optional(Type.Enum({
-  //     DISTANCE: 'distance',
-  //     RATING: 'rating',
-  //     DELIVERY_TIME: 'delivery_time',
-  //     DELIVERY_FEE: 'delivery_fee'
-  // })),
-  // page: Type.Optional(Type.Number({ default: 1 })),
-  // limit: Type.Optional(Type.Number({ default: 20, maximum: 100 })),
+  offset: Type.Optional(Type.Number({
+    description: 'Number of items to skip',
+  })),
+  limit: Type.Optional(Type.Number({
+    description: 'Maximum number of items to return',
+  })),
 });
 
 // Restaurant listing response
@@ -318,7 +303,12 @@ export const PartnerListingSchema = Type.Object({
   //   name: Type.String(),
   //   partners: Type.Array(PartnerListItemSchema)
   // })),
-  partners: Type.Array(PartnerListItemSchema)
+  partners: Type.Array(PartnerListItemSchema),
+  pagination: Type.Optional(Type.Object({
+    total: Type.Number({ description: 'Total number of partners available' }),
+    offset: Type.Optional(Type.Number({ description: 'Current offset (number of partners skipped)' })),
+    limit: Type.Optional(Type.Number({ description: 'Current limit (maximum number of partners returned)' }))
+  }))
 });
 
 // TypeScript types
