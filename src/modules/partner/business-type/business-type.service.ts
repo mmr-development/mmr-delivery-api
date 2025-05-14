@@ -5,7 +5,9 @@ import { BusinessTypeRow } from './business-type.table';
 
 export interface BusinessTypeService {
     createBusinessType(businessType: CreateBusinessTypeRequest): Promise<BusinessType>;
-    getBusinessTypes(): Promise<{ business_types: BusinessType[] }>;
+    getBusinessTypes(
+        options?: { offset?: number; limit?: number; }
+    ): Promise<{ business_types: BusinessType[], count: number }>;
     getBusinessTypeById(id: number): Promise<BusinessType>;
     updateBusinessType(id: number, businessType: CreateBusinessTypeRequest): Promise<BusinessType>;
     deleteBusinessType(id: number): Promise<void>;
@@ -23,13 +25,32 @@ export function createBusinessTypeService(db: Kysely<Database>): BusinessTypeSer
             return businessTypeRowToBusinessType(createdBusinessType);
         },
 
-        getBusinessTypes: async function (): Promise<{ business_types: BusinessType[] }> {
-            const businessTypes = await db
+        async getBusinessTypes (
+            options?: { 
+                offset?: number; 
+                limit?: number; 
+            }
+        ): Promise<{ business_types: BusinessType[], count: number }> {
+            const offset = options?.offset ?? 0;
+            const limit = options?.limit ?? null;
+
+            const { count } = await db
+                .selectFrom('business_type')
+                .select(eb => eb.fn.countAll().as('count'))
+                .executeTakeFirstOrThrow();
+
+            let query = db
                 .selectFrom('business_type')
                 .selectAll()
-                .execute();
+                .orderBy('id', 'asc')
+                .offset(offset);
 
-            return { business_types: businessTypes.map(businessTypeRowToBusinessType) };
+            if (limit != null) {
+                query = query.limit(limit);
+            }
+            const businessTypes = await query.execute();
+
+            return { business_types: businessTypes.map(businessTypeRowToBusinessType), count: Number(count)};
         },
 
         getBusinessTypeById: async function (id: number): Promise<BusinessType> {
