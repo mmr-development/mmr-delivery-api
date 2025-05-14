@@ -25,7 +25,6 @@ export function createUserRoleRepository(db: Kysely<Database>): UserRoleReposito
                 .execute();
         },
         getUserRole: async function (userId: string, role: string): Promise<UserRoleWithName | undefined> {
-            console.log(role);
             const userRole = await db
                 .selectFrom('user_role')
                 .innerJoin('role', 'user_role.role_id', 'role.id')

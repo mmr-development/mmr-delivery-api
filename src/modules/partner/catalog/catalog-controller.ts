@@ -106,7 +106,6 @@ export const catalogController: FastifyPluginAsync<CatalogControllerOptions> = a
 
     server.get<{ Params: { catalog_id: number } }>('/catalog/:catalog_id/categories', { schema: { ...getCategoriesSchema } }, async (request, reply) => {
         const categories = await catalogService.findAllCatalogCategoriesByCatalogId(request.params.catalog_id);
-        console.log('categories', categories);
         return reply.code(200).send({ categories });
     });
 

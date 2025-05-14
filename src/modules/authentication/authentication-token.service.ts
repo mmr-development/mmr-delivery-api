@@ -152,9 +152,6 @@ export function createAuthenticationTokenService(repository: RefreshTokenReposit
         },
         rotateTokens: async function (refreshToken: string, claims?: Record<string, any>): Promise<{ accessToken: AccessToken, refreshToken: RefreshToken }> {
             const { sub, jti, role } = await this.verifyRefreshToken(refreshToken);
-            console.log('Sub:', sub);
-            console.log('JTI:', jti);
-            console.log('Role:', role);
 
             const newRefreshToken = await this.createRefreshToken(sub, role);
 
