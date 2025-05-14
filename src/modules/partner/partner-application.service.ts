@@ -7,7 +7,7 @@ import { AddressService } from '../address';
 
 export interface PartnerApplicationService {
     submitApplication(application: PartnerApplicationRequest): Promise<Partner>;
-    getAllPartnerApplications(): Promise<PartnerApplicationList>;
+    getAllPartnerApplications(options?: { offset?: number; limit?: number; filters?: { status?: string; }}): Promise<{ applications: PartnerApplicationResponse[]; count: number }>;
     getPartnerApplicationById(id: number): Promise<PartnerApplicationResponse | undefined>;
     updateApplication(id: number, updateData: PartnerApplicationUpdate): Promise<PartnerApplicationResponse>;
     deleteApplication(id: number): Promise<void>;
@@ -28,6 +28,8 @@ export function createPartnerApplicationService(repository: PartnerApplicationRe
                 addressDetail: application.business.address.address_detail,
                 postalCode: application.business.address.postal_code,
                 city: application.business.address.city,
+                latitude: application.business.address.latitude,
+                longitude: application.business.address.longitude,
                 country: application.business.address.country || '',
             })
 
@@ -42,11 +44,11 @@ export function createPartnerApplicationService(repository: PartnerApplicationRe
 
             return partnerRowToPartner(partnerRow);
         },
-        getAllPartnerApplications: async function (): Promise<PartnerApplicationList> {
-            const partnerRows = await repository.findAll();
-            console.log(partnerRows, 'partnerRows')
+        getAllPartnerApplications: async function (options?: { offset?: number; limit?: number; filters?: { status?: string;} }): Promise<{ applications: PartnerApplicationResponse[]; count: number }> {
+            const result = await repository.findAll(options);
             return {
-                applications: partnerRows.map(mapRowToApplication)
+                applications: result.applications.map(mapRowToApplication),
+                count: result.count,
             };
         },
         getPartnerApplicationById: async function (id: number): Promise<PartnerApplicationResponse | undefined> {
@@ -136,6 +138,6 @@ function mapRowToApplication(row: PartnerWithRelationsRow) {
 
 export function partnerWithRelationsRowToPartner(row: PartnerWithRelationsRow): PartnerApplicationList {
     return {
-        applications: [mapRowToApplication(row)]
+        applications: [mapRowToApplication(row)],
     };
 }

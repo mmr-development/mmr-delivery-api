@@ -19,8 +19,7 @@ export async function up(db: Kysely<any>): Promise<void> {
     .addColumn('id', 'serial', col => col.primaryKey())
     .addColumn('chat_id', 'integer', col => col.notNull().references('chat.id').onDelete('cascade'))
     .addColumn('sender_id', 'uuid', col => col.notNull().references('user.id').onDelete('cascade'))
-    .addColumn('type', 'varchar(16)', col => col.notNull()) // 'text', 'image'
-    .addColumn('content', 'text', col => col.notNull())
+    .addColumn('content', 'jsonb', col => col.notNull())
     .addColumn('created_at', 'timestamp', col => col.notNull().defaultTo(sql`now()`))
     .execute();
 

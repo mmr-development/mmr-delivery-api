@@ -99,7 +99,7 @@ export const loginSchema: FastifySchema = {
 export const refreshTokenSchema: FastifySchema = {
     description: 'Refreshes an expired access token',
     tags: ['Authentication'],
-    body: RefreshTokenRequestSchema,
+    // body: RefreshTokenRequestSchema,
     response: {
         200: RefreshTokenResponseSchema,
         401: ErrorResponseSchema

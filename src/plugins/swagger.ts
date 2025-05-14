@@ -34,7 +34,9 @@ export default fp(async function (server) {
         * @see {@link https://github.com/fastify/fastify-swagger-ui}
         */
         await server.register(fastifySwaggerUI, {
-
+            uiConfig: {
+                docExpansion: 'none'
+            }
         });
     }
 });

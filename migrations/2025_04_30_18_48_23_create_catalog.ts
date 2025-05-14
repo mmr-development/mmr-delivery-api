@@ -10,6 +10,13 @@ export async function up(db: Kysely<any>): Promise<void> {
         .addColumn('created_at', 'timestamp', (col) => col.notNull().defaultTo(sql`now()`))
         .addColumn('updated_at', 'timestamp', (col) => col.notNull().defaultTo(sql`now()`))
         .execute();
+
+    await db.schema.createIndex('one_active_catalog_per_partner')
+        .on('catalog')
+        .column('partner_id')
+        .where(sql.ref('is_active'), '=', true)
+        .unique()
+        .execute();
 }
 
 export async function down(db: Kysely<any>): Promise<void> {

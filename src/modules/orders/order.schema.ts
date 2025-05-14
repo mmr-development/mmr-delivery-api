@@ -1,175 +1,177 @@
 import { FastifySchema } from 'fastify';
 import { Type, Static } from '@sinclair/typebox';
 
-// Address schema
-export const AddressSchema = Type.Object({
-  street: Type.String({ minLength: 1 }),
-  postal_code: Type.String({ minLength: 1 }),
-  city: Type.String({ minLength: 1 }),
-  floor: Type.Optional(Type.String()),
-  apartment_name: Type.Optional(Type.String()),
-  company_name: Type.Optional(Type.String())
-});
+// Simple order item schema
+const OrderItemSchema = Type.Object({
+  product_id: Type.String({ description: 'ID of the catalog item' }),
+  name: Type.String({ description: 'Product name' }),
+  quantity: Type.Number({ minimum: 1, description: 'Quantity ordered' }),
+  unit_price: Type.Number({ minimum: 0, description: 'Price per unit' })
+}, { description: 'Order item details' });
 
-// Customer schema
-export const CustomerSchema = Type.Object({
-  full_name: Type.String({ minLength: 1 }),
-  phone_number: Type.String({ minLength: 5 }),
-  contact_option: Type.Optional(Type.String())
-});
-
-// Delivery details schema
-export const DeliveryDetailsSchema = Type.Object({
+// Simple create order request
+const CreateOrderRequestSchema = Type.Object({
+  partner_id: Type.String({ description: 'ID of the partner' }),
+  items: Type.Array(OrderItemSchema, { 
+    minItems: 1, 
+    description: 'Items in the order' 
+  }),
+  payment_method: Type.String({
+    enum: ['cash', 'card', 'mobilpay'],
+    description: 'Payment method to be used'
+  }),
   delivery_time: Type.Union([
     Type.Literal('asap'),
     Type.String({ format: 'date-time' })
-  ]),
-  delivery_note: Type.Optional(Type.String()),
-  delivery_tip: Type.Optional(Type.Number())
-});
+  ], { description: 'When the order should be delivered or picked up' }),
+  customer_name: Type.String({ description: 'Customer full name' }),
+  customer_phone: Type.String({ description: 'Customer contact number' }),
+  // Simple address fields
+  address_street: Type.Optional(Type.String({ description: 'Street address' })),
+  address_city: Type.Optional(Type.String({ description: 'City' })),
+  address_postal_code: Type.Optional(Type.String({ description: 'Postal code' }))
+}, { description: 'Order creation request' });
 
-// Payment details schema
-export const PaymentDetailsSchema = Type.Object({
-  payment_method: Type.String({
-    enum: ['creditcard', 'paypal', 'mobilpay']
-  }),
-  payment_status: Type.String({
-    enum: ['pending', 'paid', 'failed']
-  })
-});
+// Simple order response
+const OrderResponseSchema = Type.Object({
+  id: Type.String({ description: 'Unique order identifier' }),
+  partner_id: Type.String({ description: 'Partner ID' }),
+  status: Type.String({ description: 'Current order status' }),
+  items: Type.Array(OrderItemSchema, { description: 'Order items' }),
+  payment_method: Type.String({ description: 'Payment method' }),
+  delivery_time: Type.String({ description: 'Delivery or pickup time' }),
+  customer_name: Type.String({ description: 'Customer name' }),
+  customer_phone: Type.String({ description: 'Customer phone number' }),
+  address_street: Type.Optional(Type.String({ description: 'Street address' })),
+  address_city: Type.Optional(Type.String({ description: 'City' })),
+  address_postal_code: Type.Optional(Type.String({ description: 'Postal code' })),
+  created_at: Type.String({ format: 'date-time', description: 'Order creation timestamp' }),
+  updated_at: Type.String({ format: 'date-time', description: 'Last update timestamp' })
+}, { description: 'Order details response' });
 
-// Order item schema
-export const OrderItemSchema = Type.Object({
-  product_id: Type.String(),
-  name: Type.String(),
-  quantity: Type.Number({ minimum: 1 }),
-  unit_price: Type.Number({ minimum: 0 }),
-  total_price: Type.Number({ minimum: 0 }),
-  notes: Type.Optional(Type.String())
-});
+// Simple update order request
+const UpdateOrderRequestSchema = Type.Object({
+  status: Type.Optional(Type.String({ description: 'New status for the order' }))
+}, { description: 'Order update request' });
 
-// Create order request schema
-export const CreateOrderRequestSchema = Type.Object({
-  restaurant_id: Type.String(),
-  address: AddressSchema,
-  customer: CustomerSchema,
-  delivery: DeliveryDetailsSchema,
-  payment: PaymentDetailsSchema,
-  items: Type.Array(OrderItemSchema),
-  subtotal: Type.Number({ minimum: 0 }),
-  delivery_fee: Type.Number({ minimum: 0 }),
-  tax: Type.Number({ minimum: 0 }),
-  total: Type.Number({ minimum: 0 })
-});
+// Simple list orders response
+const ListOrdersResponseSchema = Type.Object({
+  orders: Type.Array(OrderResponseSchema, { description: 'List of orders' }),
+  total: Type.Number({ description: 'Total number of orders matching criteria' }),
+  page: Type.Number({ description: 'Current page number' }),
+  limit: Type.Number({ description: 'Number of items per page' })
+}, { description: 'Paginated list of orders' });
 
-// Order response schema
-export const OrderResponseSchema = Type.Object({
-  id: Type.String({ format: 'uuid' }),
-  restaurant_id: Type.String(),
-  address: AddressSchema,
-  customer: CustomerSchema,
-  delivery: DeliveryDetailsSchema,
-  payment: PaymentDetailsSchema,
-  items: Type.Array(OrderItemSchema),
-  subtotal: Type.Number({ minimum: 0 }),
-  delivery_fee: Type.Number({ minimum: 0 }),
-  tax: Type.Number({ minimum: 0 }),
-  total: Type.Number({ minimum: 0 }),
-  status: Type.String({
-    enum: ['pending', 'confirmed', 'preparing', 'out_for_delivery', 'delivered', 'cancelled']
-  }),
-  created_at: Type.String({ format: 'date-time' }),
-  updated_at: Type.String({ format: 'date-time' })
-});
+// Example data for Swagger docs
+const orderExample = {
+  id: '123',
+  partner_id: '456',
+  status: 'pending',
+  items: [
+    {
+      product_id: '789',
+      name: 'Burger',
+      quantity: 2,
+      unit_price: 9.99
+    }
+  ],
+  payment_method: 'card',
+  delivery_time: '2025-05-13T10:30:00Z',
+  customer_name: 'John Doe',
+  customer_phone: '+4512345678',
+  address_street: 'Main Street 123',
+  address_city: 'Copenhagen',
+  address_postal_code: '1000',
+  created_at: '2025-05-13T09:25:00Z',
+  updated_at: '2025-05-13T09:25:00Z'
+};
 
-// Update order request schema
-export const UpdateOrderRequestSchema = Type.Object({
-  status: Type.Optional(Type.String({
-    enum: ['confirmed', 'preparing', 'out_for_delivery', 'delivered', 'cancelled']
-  })),
-  delivery: Type.Optional(DeliveryDetailsSchema),
-  payment: Type.Optional(PaymentDetailsSchema)
-});
-
-// List orders response schema
-export const ListOrdersResponseSchema = Type.Object({
-  orders: Type.Array(OrderResponseSchema),
-  total: Type.Number(),
-  page: Type.Number(),
-  limit: Type.Number()
-});
-
-// FastifySchema objects for API routes
-
+// FastifySchema objects for API routes with Swagger documentation
 export const createOrderSchema: FastifySchema = {
   body: CreateOrderRequestSchema,
   response: {
     201: OrderResponseSchema
   },
   tags: ['Orders'],
-  description: 'Create a new order',
-  summary: 'Create order'
+  description: 'Creates a new order in the system',
+  summary: 'Create new order',
+  consumes: ['application/json'],
+  produces: ['application/json'],
+  security: [{ bearerAuth: [] }]
 };
 
 export const getOrderSchema: FastifySchema = {
   params: Type.Object({
-    id: Type.String({ format: 'uuid' })
+    id: Type.String({ description: 'Order ID' })
   }),
   response: {
     200: OrderResponseSchema
   },
   tags: ['Orders'],
-  description: 'Get order by ID',
-  summary: 'Get order'
+  description: 'Retrieves an order by its unique identifier',
+  summary: 'Get order details',
+  consumes: ['application/json'],
+  produces: ['application/json'],
+  security: [{ bearerAuth: [] }]
 };
 
 export const updateOrderSchema: FastifySchema = {
   params: Type.Object({
-    id: Type.String({ format: 'uuid' })
+    id: Type.String({ description: 'Order ID to update' })
   }),
   body: UpdateOrderRequestSchema,
   response: {
     200: OrderResponseSchema
   },
   tags: ['Orders'],
-  description: 'Update an existing order',
-  summary: 'Update order'
+  description: 'Updates an existing order - currently supports status updates',
+  summary: 'Update order',
+  consumes: ['application/json'],
+  produces: ['application/json'],
+  security: [{ bearerAuth: [] }]
 };
 
 export const deleteOrderSchema: FastifySchema = {
   params: Type.Object({
-    id: Type.String({ format: 'uuid' })
+    id: Type.String({ description: 'Order ID to delete' })
   }),
   response: {
     204: Type.Null()
   },
   tags: ['Orders'],
-  description: 'Delete an order',
-  summary: 'Delete order'
+  description: 'Deletes an order - requires admin privileges',
+  summary: 'Delete order',
+  security: [{ bearerAuth: [] }]
 };
 
 export const listOrdersSchema: FastifySchema = {
   querystring: Type.Object({
-    restaurant_id: Type.Optional(Type.String()),
-    status: Type.Optional(Type.String({
-      enum: ['pending', 'confirmed', 'preparing', 'out_for_delivery', 'delivered', 'cancelled']
+    partner_id: Type.Optional(Type.String({ description: 'Filter orders by partner ID' })),
+    status: Type.Optional(Type.String({ description: 'Filter orders by status' })),
+    page: Type.Optional(Type.Number({ 
+      minimum: 1, 
+      default: 1, 
+      description: 'Page number for pagination' 
     })),
-    page: Type.Optional(Type.Number({ minimum: 1, default: 1 })),
-    limit: Type.Optional(Type.Number({ minimum: 1, maximum: 100, default: 10 }))
+    limit: Type.Optional(Type.Number({ 
+      minimum: 1, 
+      maximum: 100, 
+      default: 10, 
+      description: 'Number of results per page' 
+    }))
   }),
   response: {
     200: ListOrdersResponseSchema
   },
   tags: ['Orders'],
-  description: 'List all orders with filtering options',
-  summary: 'List orders'
+  description: 'Lists orders with optional filtering and pagination',
+  summary: 'List orders',
+  consumes: ['application/json'],
+  produces: ['application/json'],
+  security: [{ bearerAuth: [] }]
 };
 
 // TypeScript types
-export type Address = Static<typeof AddressSchema>;
-export type Customer = Static<typeof CustomerSchema>;
-export type DeliveryDetails = Static<typeof DeliveryDetailsSchema>;
-export type PaymentDetails = Static<typeof PaymentDetailsSchema>;
 export type OrderItem = Static<typeof OrderItemSchema>;
 export type CreateOrderRequest = Static<typeof CreateOrderRequestSchema>;
 export type OrderResponse = Static<typeof OrderResponseSchema>;

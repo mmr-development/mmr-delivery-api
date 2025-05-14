@@ -4,7 +4,7 @@ import { InsertablePartnerRow, PartnerRow, PartnerWithRelationsRow, UpdateablePa
 
 export interface PartnerApplicationRepository {
     create(application: InsertablePartnerRow): Promise<PartnerRow>;
-    findAll(): Promise<PartnerWithRelationsRow[]>;
+    findAll(options?: { offset?: number; limit?: number; filters?: { status?: string; } }): Promise<{ applications: PartnerWithRelationsRow[]; count: number }>;
     findById(id: number): Promise<PartnerWithRelationsRow | undefined>;
     update(id: number, applicationData: UpdateablePartnerRow): Promise<PartnerRow>;
     delete(id: number): Promise<void>;
@@ -21,8 +21,21 @@ export function createPartnerApplicationRepository(db: Kysely<Database>): Partne
 
             return insertedApplication;
         },
-        async findAll(): Promise<PartnerWithRelationsRow[]> {
-            const applications = await db
+        async findAll(options?: { 
+            offset?: number; 
+            limit?: number; 
+            filters?: { 
+                name?: string; 
+                status?: string; 
+                user_email?: string; 
+            } 
+        }): Promise<{ applications: PartnerWithRelationsRow[]; count: number }> {
+            const offset = options?.offset ?? 0;
+            const limit = options?.limit ?? null;
+            const filters = options?.filters ?? {};
+            
+            // Base query for both count and data
+            let baseQuery = db
                 .selectFrom('partner')
                 .leftJoin('business_type', 'partner.business_type_id', 'business_type.id')
                 .leftJoin('delivery_method', 'partner.delivery_method_id', 'delivery_method.id')
@@ -31,7 +44,27 @@ export function createPartnerApplicationRepository(db: Kysely<Database>): Partne
                 .leftJoin('street', 'address.street_id', 'street.id')
                 .leftJoin('postal_code', 'address.postal_code_id', 'postal_code.id')
                 .leftJoin('city', 'postal_code.city_id', 'city.id')
-                .leftJoin('country', 'city.country_id', 'country.id')
+                .leftJoin('country', 'city.country_id', 'country.id');
+                
+            // Apply filters
+            if (filters.name) {
+                const searchTerm = `%${filters.name}%`;
+                baseQuery = baseQuery.where('partner.name', 'like', searchTerm);
+            }
+            if (filters.status) {
+                baseQuery = baseQuery.where('partner.status', '=', filters.status);
+            }
+            if (filters.user_email) {
+                baseQuery = baseQuery.where('user.email', '=', filters.user_email);
+            }
+            
+            // Get total count
+            const { count } = await baseQuery
+                .select(eb => eb.fn.countAll().as('count'))
+                .executeTakeFirstOrThrow();
+                
+            // Get paginated data
+            let dataQuery = baseQuery
                 .select([
                     'partner.id',
                     'partner.name',
@@ -52,9 +85,19 @@ export function createPartnerApplicationRepository(db: Kysely<Database>): Partne
                     'postal_code.code as postal_code',
                     'country.name as country',
                 ])
-                .execute();
-
-            return applications;
+                .orderBy('partner.id')
+                .offset(offset);
+                
+            if (limit !== null) {
+                dataQuery = dataQuery.limit(limit);
+            }
+            
+            const applications = await dataQuery.execute();
+            
+            return {
+                applications,
+                count: Number(count)
+            };
         },
         async findById(id: number): Promise<PartnerWithRelationsRow | undefined> {
             const application = await db

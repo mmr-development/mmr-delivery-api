@@ -13,3 +13,11 @@ export interface UserTable {
 export type UserRow = Selectable<UserTable>
 export type InsertableUserRow = Insertable<UserTable>
 export type UpdateableUserRow = Updateable<UserTable>
+
+export interface UserRowWithRoles extends UserRow {
+    roles: {
+        id: string
+        name: string
+        description?: string
+    }[]
+}

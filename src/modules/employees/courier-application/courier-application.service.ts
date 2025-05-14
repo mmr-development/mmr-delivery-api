@@ -29,6 +29,8 @@ export function createCourierApplicationService(repository: CourierApplicationRe
                 postalCode: application.personal_details.address.postal_code,
                 city: application.personal_details.address.city,
                 country: application.personal_details.address.country,
+                latitude: application.personal_details.address.latitude,
+                longitude: application.personal_details.address.longitude,
             });
 
             const courier = await repository.create({
@@ -112,6 +114,6 @@ export function courierRowToCourier(courier: EmployeeWithRelationsRow): Employee
             verified_by: doc.verified_by || undefined,
             verification_date: doc.verification_date ? new Date(doc.verification_date).toISOString() : undefined,
             document_url: doc.document_url || undefined,
-          })),
+        })),
     }
 }

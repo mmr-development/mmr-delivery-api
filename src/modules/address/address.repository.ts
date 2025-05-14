@@ -6,7 +6,7 @@ export interface AddressRepository {
     findOrCreateCity(name: string, countryId: number): Promise<number>;
     findOrCreateStreet(name: string, cityId: number): Promise<number>;
     findOrCreatePostalCode(code: string, cityId: number): Promise<number>;
-    findOrCreateAddress(streetId: number, addressDetail: string, postalCodeId: number): Promise<number>;
+    findOrCreateAddress(streetId: number, addressDetail: string, postalCodeId: number, latitude: number, longitude: number): Promise<number>;
 }
 
 export function createAddressRepository(db: Kysely<Database>): AddressRepository {
@@ -76,7 +76,7 @@ export function createAddressRepository(db: Kysely<Database>): AddressRepository
             
             return result.id;
         },
-        async findOrCreateAddress(streetId: number, addressDetail: string, postalCodeId: number): Promise<number> {
+        async findOrCreateAddress(streetId: number, addressDetail: string, postalCodeId: number, latitude: number, longitude: number): Promise<number> {
             const existing = await db.selectFrom('address')
                 .where('street_id', '=', streetId)
                 .where('address_detail', '=', addressDetail)
@@ -90,7 +90,9 @@ export function createAddressRepository(db: Kysely<Database>): AddressRepository
                 .values({
                     street_id: streetId,
                     address_detail: addressDetail,
-                    postal_code_id: postalCodeId
+                    postal_code_id: postalCodeId,
+                    latitude: latitude,
+                    longitude: longitude
                 })
                 .returning('id')
                 .executeTakeFirstOrThrow();

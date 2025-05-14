@@ -5,7 +5,7 @@ import { CreateVehicleTypeRequest, createVehicleTypeSchema, deleteVehicleTypeSch
 import { HourPreferenceService } from './hours-preference/hours-preference.service';
 import { SchedulePreferenceService } from './schedule-preference/schedule-preference.service';
 import { ControllerError } from '../../utils/errors';
-import { deleteSchedulePreferenceSchema, getAllSchedulePreferencesSchema, getSchedulePreferenceByIdSchema, UpdateSchedulePreference, updateSchedulePreferenceSchema } from './schedule-preference/schedule-preference.schema';
+import { CreateSchedulePreference, createSchedulePreferenceSchema, deleteSchedulePreferenceSchema, getAllSchedulePreferencesSchema, getSchedulePreferenceByIdSchema, UpdateSchedulePreference, updateSchedulePreferenceSchema } from './schedule-preference/schedule-preference.schema';
 import { deleteHourPreferenceSchema, getAllHourPreferencesSchema, getHourPreferenceByIdSchema, updateHourPreferenceSchema } from './hours-preference';
 
 export interface EmployeesControllerOptions {
@@ -161,6 +161,17 @@ export const employeeController: FastifyPluginAsync<EmployeesControllerOptions> 
     server.delete<{ Params: { id: number } }>('/couriers/hour-preferences/:id/', { schema: { ...deleteHourPreferenceSchema, tags: ['Courier Hour Preferences'] }, preHandler: [server.authenticate, server.guard.role('admin')] }, async (request, reply) => {
         await hourPreferenceService.deleteHourPreference(request.params.id);
         return reply.code(204).send();
+    });
+
+    server.post<{ Body: CreateSchedulePreference }>('/couriers/schedule-preferences/', { schema: { ...createSchedulePreferenceSchema, tags: ['Courier Schedule Preferences'] }, preHandler: [server.authenticate, server.guard.role('admin')] }, async (request, reply) => {
+        const { body } = request;
+        try {
+            const response = await schedulePreferenceService.createSchedulePreference(body);
+            reply.status(201).send(response);
+        } catch (error) {
+            console.error('Error creating schedule preference:', error);
+            reply.status(500).send({ message: 'Internal server error' });
+        }
     });
 
     server.get('/couriers/schedule-preferences/', { schema: { ...getAllSchedulePreferencesSchema, tags: ['Courier Schedule Preferences'] } }, async (request, reply) => {

@@ -30,7 +30,9 @@ export const PersonalDetailsSchema = Type.Object({
         address_detail: Type.Optional(Type.String({ minLength: 1, maxLength: 255 })),
         city: Type.String({ minLength: 1, maxLength: 100 }),
         postal_code: Type.String({ minLength: 1, maxLength: 20 }),
-        country: Type.String({ minLength: 1, maxLength: 100 })
+        country: Type.String({ minLength: 1, maxLength: 100 }),
+        latitude: Type.Optional(Type.Number()),
+        longitude: Type.Optional(Type.Number())
     }),
     is_eighteen_plus: Type.Boolean(),
 });

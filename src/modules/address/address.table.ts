@@ -5,6 +5,8 @@ export interface AddressTable {
     street_id: number;
     address_detail: string;
     postal_code_id: number;
+    latitude: number;
+    longitude: number;
     created_at: Generated<Date>;
     updated_at: Generated<Date>;
 }

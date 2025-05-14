@@ -1,4 +1,5 @@
-import { CreateCustomerUserRequest, CreatePartnerUserRequest, User } from './user';
+import { User } from './user.schema';
+import { CreateCustomerUserRequest, CreateCustomerUserRequestWithoutPassword, CreatePartnerUserRequest } from './user';
 import { UserRepository } from './user.repository';
 import { UserRow } from './user.table';
 import { Kysely, Transaction } from 'kysely'
@@ -8,6 +9,7 @@ import { UserRoleRow, UserRoleWithName } from './user-role/user-role.table';
 
 export interface UserService {
     insertUser(trx: Transaction<Database>, userRequest: CreateCustomerUserRequest): Promise<User>;
+    createCustomerUser(userRequest: CreateCustomerUserRequestWithoutPassword): Promise<User>;
     createPartnerUser(request: CreatePartnerUserRequest): Promise<User>;
     createCourierUser(request: CreatePartnerUserRequest): Promise<User>;
     findUserById(userId: string): Promise<User | undefined>;
@@ -15,6 +17,7 @@ export interface UserService {
     lockUserByEmail(trx: Transaction<Database>, email: string): Promise<User | undefined>;
     lockUserById(trx: Transaction<Database>, id: string): Promise<User | undefined>;
     getUserRole(userId: string, clientId: string): Promise<UserRoleWithName>;
+    findAllUsers(options?: { offset?: number; limit?: number, filters?: { email?: string; name?: string; phone_number?: string; } }): Promise<{ users: User[]; count?: number; }>;
 }
 
 export class EmailAlreadyExistsError extends Error { }
@@ -29,6 +32,24 @@ export function createUserService(repository: UserRepository, userRoleService: U
             }
 
             const userRow = await repository.insertUser(trx, {
+                first_name: userRequest.first_name,
+                last_name: userRequest.last_name,
+                email: userRequest.email,
+                phone_number: userRequest.phone_number
+            });
+
+            await userRoleService.assignRoleToUser(userRow.id, 'customer');
+
+            return userRowToUser(userRow);
+        },
+        createCustomerUser: async function (userRequest: CreateCustomerUserRequestWithoutPassword): Promise<User> {
+            const existingUser = await repository.findUserByEmail(userRequest.email);
+
+            if (existingUser) {
+                return userRowToUser(existingUser);
+            }
+
+            const userRow = await repository.createCustomerUser({
                 first_name: userRequest.first_name,
                 last_name: userRequest.last_name,
                 email: userRequest.email,
@@ -55,21 +76,21 @@ export function createUserService(repository: UserRepository, userRoleService: U
 
             return userRowToUser(userRow);
         },
-        createCourierUser: async function(request: CreatePartnerUserRequest): Promise<User> {
-        const existingUser = await repository.findUserByEmail(request.email);
+        createCourierUser: async function (request: CreatePartnerUserRequest): Promise<User> {
+            const existingUser = await repository.findUserByEmail(request.email);
 
-        if (existingUser) {
-            return userRowToUser(existingUser);
-        }
+            if (existingUser) {
+                return userRowToUser(existingUser);
+            }
 
-        const userRow = await repository.createPartnerUser({
-            first_name: request.first_name,
-            last_name: request.last_name,
-            email: request.email,
-            phone_number: request.phone_number
-        });
+            const userRow = await repository.createPartnerUser({
+                first_name: request.first_name,
+                last_name: request.last_name,
+                email: request.email,
+                phone_number: request.phone_number
+            });
 
-        return userRowToUser(userRow);
+            return userRowToUser(userRow);
         },
         findUserById: async function (userId: string): Promise<User | undefined> {
             const userRow = await repository.findUserById(userId);
@@ -107,18 +128,16 @@ export function createUserService(repository: UserRepository, userRoleService: U
             }
 
             return userRole;
+        },
+        findAllUsers: async function (options?: { offset?: number; limit?: number, filters?: { email?: string; name?: string; phone_number?: string; } }): Promise<{ users: User[]; count?: number; }> {
+            const result = await repository.findAllUsers(options);
+            return {
+                users: result.users.map(userRowWithRolesToUser),
+                count: result.count
+            };
         }
     }
 }
-
-// export function userRoleRowToUserRole(userRole: UserRoleRow): UserRoleWithName {
-//     return {
-//         id: userRole.id,
-//         user_id: userRole.user_id,
-//         role_id: userRole.role_id,
-//         role_name: userRole.role_name
-//     }
-// }
 
 export function userRowToUser(user: UserRow): User {
     return {
@@ -126,6 +145,21 @@ export function userRowToUser(user: UserRow): User {
         first_name: user.first_name,
         last_name: user.last_name,
         email: user.email,
-        phone_number: user.phone_number
+        phone_number: user.phone_number,
+        created_at: user.created_at.toISOString(),
+        updated_at: user.updated_at.toISOString(),
+    }
+}
+
+export function userRowWithRolesToUser(user: UserRow & { roles?: { id: string; name: string; description?: string }[] }): User {
+    return {
+        id: user.id,
+        first_name: user.first_name,
+        last_name: user.last_name,
+        email: user.email,
+        phone_number: user.phone_number,
+        created_at: user.created_at.toISOString(),
+        updated_at: user.updated_at.toISOString(),
+        roles: user.roles ?? []
     }
 }

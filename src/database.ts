@@ -23,6 +23,9 @@ import { SchedulePreferenceTable } from './modules/employees/schedule-preference
 import { HourPreferenceTable } from './modules/employees/hours-preference/hours-preference.table';
 import { EmployeeDocumentationTable } from './modules/employees/employee-documentation/employee-documentation.table';
 import { ChatTable, UserChatTable, MessageTable, PushTokenTable } from './modules/chat/chat.table';
+import { DeliveryTrackingTable } from './modules/delivery-tracking/delivery-tracking.table';
+import { OrderItemTable, OrderTable } from './modules/orders/order.table';
+import { CustomerTable } from './modules/customer/customer.table';
 
 export interface Database {
     refresh_token: RefreshTokenTable;
@@ -53,4 +56,8 @@ export interface Database {
     user_chat: UserChatTable;
     message: MessageTable;
     push_token: PushTokenTable;
+    delivery_tracking: DeliveryTrackingTable;
+    order: OrderTable;
+    order_item: OrderItemTable;
+    customer: CustomerTable;
 }

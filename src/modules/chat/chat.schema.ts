@@ -24,10 +24,10 @@ export const MessageBaseSchema = Type.Object({
 
 // Create chat schema
 export const CreateChatSchema = Type.Object({
-  participant_ids: Type.Array(Type.String(), {
-    description: 'Array of user IDs to add to the chat (current user will be added automatically)'
-  })
-});
+    participant_ids: Type.Optional(Type.Array(Type.String(), {
+      description: 'Array of user IDs to add to the chat (current user will be added automatically)'
+    }))
+  });
 
 // Response schemas
 export const ChatResponseSchema = Type.Intersect([
@@ -66,14 +66,14 @@ export type AddParticipantRequest = Static<typeof AddParticipantSchema>;
 
 // Fastify schemas
 export const createChatSchema: FastifySchema = {
-  summary: 'Create a new chat',
-  description: 'Create a new chat with specified participants',
-  tags: ['Chat'],
-  body: CreateChatSchema,
-  response: {
-    201: ChatResponseSchema
-  }
-};
+    summary: 'Create a new chat',
+    description: 'Create a new private chat. No request body needed for a self-chat.',
+    tags: ['Chat'],
+    // body: Type.Optional(CreateChatSchema), // Make entire body optional
+    response: {
+      201: ChatResponseSchema
+    }
+  };
 
 export const listChatsSchema: FastifySchema = {
   summary: 'Get all user chats',

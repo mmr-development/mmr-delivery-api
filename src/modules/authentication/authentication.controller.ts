@@ -41,9 +41,9 @@ export const authenticationController: FastifyPluginAsync<AuthenticationControll
             // Set HTTP-only cookie for refresh token
             reply.setCookie('refresh_token', signedInUser.refreshToken.refreshToken, {
                 httpOnly: true,
-                secure: process.env.NODE_ENV === 'production',
-                sameSite: 'lax',
-                path: '/auth/refresh-token/',
+                secure: true,
+                sameSite: 'none',
+                path: '/',
                 maxAge: 2592000
             });
 
@@ -93,14 +93,50 @@ export const authenticationController: FastifyPluginAsync<AuthenticationControll
         });
     })
 
-    server.post<{ Body: { refresh_token: string } }>('/auth/refresh-token/', { schema: { ...refreshTokenSchema } }, async (request, reply) => {
-        const { refresh_token } = request.body;
+    server.post<{ Body: { refresh_token?: string }, Querystring: { client_id: string } }>('/auth/refresh-token/', { schema: { ...refreshTokenSchema } }, async (request, reply) => {
+        
+        console.log("Refresh token request received");
+        console.log(request.cookies);
 
-        const { accessToken, refreshToken } = await authenticationTokenService.rotateTokens(refresh_token);
+        let refreshToken = request.cookies.refresh_token;
+        if (!refreshToken && request.body.refresh_token) {
+            refreshToken = request.body.refresh_token;
+        }
+    
+        if (!refreshToken) {
+            return reply.status(400).send({ message: "Refresh token is required" });
+        }
 
+        const payload = await authenticationTokenService.verifyRefreshToken(refreshToken);
+        const userRole = await userService.getUserRole(payload.sub, request.query.client_id);
+    
+        const { accessToken, refreshToken: newRefreshToken } = await authenticationTokenService.rotateTokens(refreshToken, {
+            role: userRole.role_name,
+        });
+
+        // Set HTTP-only cookie for new refresh token
+
+        reply.setCookie('refresh_token', newRefreshToken.refreshToken, {
+            httpOnly: true,
+            secure: true,
+            sameSite: 'none',
+            path: '/',
+            maxAge: 2592000
+        });
+
+        // Set HTTP-only cookie for new access token
+
+        reply.setCookie('access_token', accessToken.accessToken, {
+            httpOnly: true,
+            secure: true,
+            sameSite: 'none',
+            path: '/',
+            maxAge: 3600
+        });
+    
         reply.status(200).send({
             access_token: accessToken.accessToken,
-            refresh_token: refreshToken.refreshToken
+            refresh_token: newRefreshToken.refreshToken
         });
     });
 

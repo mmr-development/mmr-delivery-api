@@ -7,6 +7,12 @@ export async function up(db: Kysely<any>): Promise<void> {
         .addColumn('created_at', 'timestamp', (col) => col.defaultTo(sql`now()`))
         .addColumn('updated_at', 'timestamp', (col) => col.defaultTo(sql`now()`))
         .execute();
+
+    await db.insertInto('vehicle_type').values([
+        { name: 'Cykel' },
+        { name: 'Scooter' },
+        { name: 'Bil' },
+    ]).execute();
 }
 
 export async function down(db: Kysely<any>): Promise<void> {

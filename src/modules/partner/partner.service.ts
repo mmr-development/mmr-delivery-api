@@ -4,6 +4,7 @@ import { PartnerFilter, PartnerListing } from './partner.schema';
 
 export interface PartnerService {
     getPartners(filters: PartnerFilter): Promise<PartnerListing>;
+    findPartnerByUserId(userId: string): Promise<any>;
 }
 
 export function createPartnerService(db: Kysely<Database>): PartnerService {
@@ -74,6 +75,15 @@ export function createPartnerService(db: Kysely<Database>): PartnerService {
             }));
 
             return { partners: formattedPartners };
+        },
+        findPartnerByUserId: async function (userId: string): Promise<any> {
+            const partner = await db
+                .selectFrom('partner')
+                .where('user_id', '=', userId)
+                .selectAll()
+                .executeTakeFirst();
+
+            return partner;
         }
     }
 }

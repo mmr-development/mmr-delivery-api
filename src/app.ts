@@ -34,7 +34,13 @@ import { chatWsPlugin } from './modules/chat/chat.ws';
 import { createChatRepository } from './modules/chat/chat.repository';
 import { createChatService } from './modules/chat/chat.service';
 import { chatController } from './modules/chat/chat.controller';
-
+import { catalogController } from './modules/partner/catalog/catalog-controller';
+import multipart from '@fastify/multipart';
+import { createOrderService } from './modules/orders/order.service';
+import { createOrdersRepository } from './modules/orders/order.repository';
+import { createCustomerRepository, createCustomerService } from './modules/customer';
+import { createPaymentService } from './payment/payment.service';
+import { createPaymentRepository } from './payment/payment.repository';
 
 export interface AppOptions {
     config: typeof config;
@@ -54,12 +60,21 @@ export async function buildApp(fastify: FastifyInstance, opts: AppOptions) {
         origin: [
             'https://10.130.54.32:5501',
             'https://localhost:5501',
+            'http://172.19.16.1:5501',
+            'https://172.19.16.1:5501',
+            'http://localhost:5501',
             'http://127.0.0.1:5500',
+            'https://10.130.54.22:5501',
+            'http://10.130.54.44:8082',
+            'http://10.130.54.44:8081',
+            'https://172.30.80.1:5501',
+            'https://172.22.240.1:5501',
+            'http://127.0.0.1:5501',  // Add this line
             'https://127.0.0.1:5501',
             'https://10.130.54.44:8081',
             'http://10.130.54.44:8081'
         ],
-        methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+        methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
         allowedHeaders: ['Content-Type', 'Authorization'],
         credentials: true
     });
@@ -67,6 +82,8 @@ export async function buildApp(fastify: FastifyInstance, opts: AppOptions) {
     fastify.register(fastifyCookie, {
         secret: "my-secret",
     })
+
+    fastify.register(multipart);
 
     /* Loads all plugins defined in the plugins directory. */
     fastify.register(AutoLoad, {
@@ -91,10 +108,14 @@ export async function buildApp(fastify: FastifyInstance, opts: AppOptions) {
         partnerApplicationService: createPartnerApplicationService(createPartnerApplicationRepository(db), createUserService(createUserRepository(db), createUserRoleService(createUserRoleRepository(db))), createAddressService(createAddressRepository(db))),
         deliveryMethodService: createDeliveryMethodService(db),
         businessTypeService: createBusinessTypeService(db),
-        catalogService: createCatalogService(db),
         partnerService: createPartnerService(db), 
         partnerHourService: createPartnerHourService(createPartnerHourRepository(db)),
         prefix: '/v1'
+    })
+
+    fastify.register(catalogController, {
+        catalogService: createCatalogService(db),
+        prefix: '/v1',
     })
 
     fastify.register(employeeController, {
@@ -120,6 +141,7 @@ export async function buildApp(fastify: FastifyInstance, opts: AppOptions) {
     })
 
     fastify.register(userController, {
+        userService: createUserService(createUserRepository(db), createUserRoleService(createUserRoleRepository(db))),
         prefix: '/v1',
     })
 
@@ -128,6 +150,12 @@ export async function buildApp(fastify: FastifyInstance, opts: AppOptions) {
     });
 
     fastify.register(orderController, {
+        userService: createUserService(createUserRepository(db), createUserRoleService(createUserRoleRepository(db))),
+        addressService: createAddressService(createAddressRepository(db)),
+        customerService: createCustomerService(createCustomerRepository(db)),
+        orderService: createOrderService(createOrdersRepository(db)),
+        catalogService: createCatalogService(db),
+        paymentService: createPaymentService(createPaymentRepository(db)),
         prefix: '/v1',
     })
 

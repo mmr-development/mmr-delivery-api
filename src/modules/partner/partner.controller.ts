@@ -18,8 +18,9 @@ import {
     deleteBusinessTypeSchema
 } from './business-type';
 import { ControllerError } from '../../utils/errors';
-import { createCatalogSchema, CatalogService, createCatalogCategorySchema, createCatalogItemSchema, getCatalogSchema, GetCatalogsQuerySchema } from './catalog';
-import { CreateCatalogCategoryRequest } from './catalog/catelog-category';
+// import { createCatalogSchema, CatalogService, createCatalogCategorySchema, createCatalogItemSchema, getCatalogSchema, GetCatalogsQuerySchema, UpdateCatalogCategoryRequest, updateCatalogCategorySchema, deleteSchemaCatalog } from './catalog';
+// import { CreateCatalogCategoryRequest } from './catalog/catelog-category';
+import { CatalogService } from './catalog';
 import { CreateCatalogItemRequest } from './catalog/catalog-item';
 import { EmailAlreadyExistsError } from '../users';
 import { PartnerService } from './partner.service';
@@ -30,14 +31,14 @@ export interface PartnerControllerOptions {
     partnerApplicationService: PartnerApplicationService;
     deliveryMethodService: DeliveryMethodService;
     businessTypeService: BusinessTypeService;
-    catalogService: CatalogService;
     partnerService: PartnerService;
     partnerHourService: PartnerHourService;
 }
 
-export const partnerController: FastifyPluginAsync<PartnerControllerOptions> = async function (server, { partnerApplicationService, deliveryMethodService, businessTypeService, catalogService, partnerService, partnerHourService }) {
+export const partnerController: FastifyPluginAsync<PartnerControllerOptions> = async function (server, { partnerApplicationService, deliveryMethodService, businessTypeService, partnerService, partnerHourService }) {
     server.post<{ Body: PartnerApplicationRequest }>('/partner-applications/', { schema: { ...partnerApplicationSchema } }, async (request, reply) => {
         try {
+            console.log('request.body', request.body);
             await partnerApplicationService.submitApplication(request.body);
             return reply.code(201).send({
                 message: 'Partner application submitted successfully',
@@ -50,19 +51,32 @@ export const partnerController: FastifyPluginAsync<PartnerControllerOptions> = a
         }
     });
 
-    server.get('/partner-applications/', { schema: { ...getPartnerApplicationsSchema, tags: ['Partner Applications'] }, preHandler: [server.authenticate, server.guard.role('admin')] }, async (request, reply) => {
-        const partnerApplications = await partnerApplicationService.getAllPartnerApplications();
-
-        if (!partnerApplications) {
-            throw new ControllerError(
-                404,
-                'UserNotFound',
-                'No partner applications found'
-            )
+    server.get<{
+        Querystring: { offset?: number; limit?: number; status?: string; name?: string; user_email?: string }
+    }>(
+        '/partner-applications/',
+        {
+            schema: { ...getPartnerApplicationsSchema, tags: ['Partner Applications'] },
+            preHandler: [server.authenticate, server.guard.role('admin')]
+        },
+        async (request, reply) => {
+            const { offset, limit, status } = request.query;
+            const { applications, count } = await partnerApplicationService.getAllPartnerApplications({
+                offset,
+                limit,
+                filters: { status }
+            });
+    
+            return reply.code(200).send({
+                applications,
+                pagination: {
+                    total: count,
+                    offset,
+                    limit
+                }
+            });
         }
-
-        return reply.code(200).send(partnerApplications);
-    });
+    );
 
     server.get<{ Params: { id: number } }>('/partner-applications/:id/', { schema: { ...getPartnerApplicationByIdSchema }, preHandler: [server.authenticate, server.guard.role('admin')] }, async (request, reply) => {
         const partnerApplication = await partnerApplicationService.getPartnerApplicationById(request.params.id);
@@ -147,112 +161,11 @@ export const partnerController: FastifyPluginAsync<PartnerControllerOptions> = a
         return reply.code(204).send();
     });
 
-    server.post<{ Body: Partner, Params: { partner_id: number } }>('/partners/:partner_id/catalogs/', { schema: { ...createCatalogSchema, tags: ['Partner Catalogs'] } }, async (request, reply) => {
-        // const userId = request.user.sub;
-
-        // fetch partner by user id. Check if partner_id url matches the authenticated user's partner_id. If yes proceed with catalog creation.
-
-        const catalog = await catalogService.createCatalog(request.params.partner_id, request.body);
-        return reply.code(201).send(catalog);
-    });
-
-    server.get<{ Params: { partner_id: number }, Querystring: { expand?: string } }>('/partners/:partner_id/catalogs/', { schema: { ...getCatalogSchema, tags: ['Partner Catalogs'], querystring: GetCatalogsQuerySchema } }, async (request, reply) => {
-        const expand = request.query.expand?.split(',').map(s => s.trim()) ?? [];
-        const catalogs = await catalogService.findCatalogsByPartnerId(request.params.partner_id, expand);
-        return reply.code(200).send(catalogs);
-    });
-
-    server.get<{ Params: { catalog_id: number } }>('/partners/:partner_id/catalogs/:catalog_id/', { schema: { ...getCatalogSchema, tags: ['Partner Catalogs'] } }, async (request, reply) => {
-
+    server.get('/partners/me/', { schema: { tags: ['Partners']}, preHandler: [server.authenticate] }, async (request, reply) => {
+        const userId = request.user.sub;
+        const partner = await partnerService.findPartnerByUserId(userId);
+        return reply.code(200).send(partner);
     })
-
-    server.patch<{ Body: Partner, Params: { catalog_id: number } }>('/partners/:partner_id/catalogs/:catalog_id/', { schema: { ...createCatalogSchema, tags: ['Partner Catalogs'] } }, async (request, reply) => {
-
-    })
-
-    server.delete<{ Params: { catalog_id: number } }>('/partners/:partner_id/catalogs/:catalog_id/', { schema: { ...createCatalogSchema, tags: ['Partner Catalogs'] } }, async (request, reply) => {
-
-    });
-
-    server.post('/partners/:partner_id/catalogs/upload-menu/', { schema: { tags: ['Partner Catalogs'] } }, async (request, reply) => {
-
-    })
-
-    server.post('/partners/:partner_id/catalogs/import/', { schema: { tags: ['Partner Catalogs'] } }, async (request, reply) => {
-        // Validate and process request.body.catalog
-        // Create catalog, categories, and items in one transaction
-        // Return created resources or summary
-        // {
-        //     "catalog": {
-        //       "name": "Summer Menu",
-        //       "categories": [
-        //         {
-        //           "name": "Starters",
-        //           "items": [
-        //             { "name": "Soup", "price": 5.0 },
-        //             { "name": "Salad", "price": 6.0 }
-        //           ]
-        //         },
-        //         {
-        //           "name": "Mains",
-        //           "items": [
-        //             { "name": "Steak", "price": 20.0 }
-        //           ]
-        //         }
-        //       ]
-        //     }
-        //   }
-    });
-
-    server.post('/partners/:partner_id/catalogs/:catalog_id/categories/', { schema: { tags: ['Partner Catalog Categories'] } }, async (request, reply) => {
-
-    })
-
-    server.get('/partners/:partner_id/catalogs/:catalog_id/categories/', { schema: { tags: ['Partner Catalog Categories'] } }, async (request, reply) => {
-
-    })
-
-    server.get('/partners/:partner_id/catalogs/:catalog_id/categories/:category_id/', { schema: { tags: ['Partner Catalog Categories'] } }, async (request, reply) => {
-
-    })
-
-    server.patch('/partners/:partner_id/catalogs/:catalog_id/categories/:category_id/', { schema: { tags: ['Partner Catalog Categories'] } }, async (request, reply) => {
-
-    })
-
-    server.delete('/partners/:partner_id/catalogs/:catalog_id/categories/:category_id/', { schema: { tags: ['Partner Catalog Categories'] } }, async (request, reply) => {
-
-    })
-
-    server.post('/partners/:partner_id/catalogs/:catalog_id/categories/:category_id/items/', { schema: { tags: ['Partner Catalog Items'] } }, async (request, reply) => {
-
-    })
-
-    server.get('/partners/:partner_id/catalogs/:catalog_id/categories/:category_id/items/', { schema: { tags: ['Partner Catalog Items'] } }, async (request, reply) => {
-
-    })
-
-    server.get('/partners/:partner_id/catalogs/:catalog_id/categories/:category_id/items/:item_id/', { schema: { tags: ['Partner Catalog Items'] } }, async (request, reply) => {
-
-    })
-
-    server.patch('/partners/:partner_id/catalogs/:catalog_id/categories/:category_id/items/:item_id/', { schema: { tags: ['Partner Catalog Items'] } }, async (request, reply) => {
-
-    })
-
-    server.delete('/partners/:partner_id/catalogs/:catalog_id/categories/:category_id/items/:item_id/', { schema: { tags: ['Partner Catalog Items'] } }, async (request, reply) => {
-
-    })
-
-    // server.post<{ Body: CreateCatalogCategoryRequest, Params: { catalog_id: number } }>('/catalogs/:catalog_id/categories/', { schema: { ...createCatalogCategorySchema, tags: ['Partner Catalog Categories'] } }, async (request, reply) => {
-    //     const catalogCategory = await catalogService.createCatalogCategory(request.params.catalog_id, request.body);
-    //     return reply.code(201).send(catalogCategory);
-    // });
-
-    // server.post<{ Body: CreateCatalogItemRequest, Params: { category_id: number } }>('/categories/:category_id/items/', { schema: { ...createCatalogItemSchema, tags: ['Partner Catalog Items'] } }, async (request, reply) => {
-    //     const catalogItem = await catalogService.createCatalogItem(request.params.category_id, request.body);
-    //     return reply.code(201).send(catalogItem);
-    // });
 
     // --- Partner Hours CRUD ---
 

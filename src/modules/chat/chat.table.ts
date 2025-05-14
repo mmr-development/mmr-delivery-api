@@ -11,12 +11,25 @@ export interface UserChatTable {
   user_id: string;
   joined_at: Generated<Date>;
 }
+
+export interface ImageContent {
+  url: string;
+  caption?: string;
+  width?: number;
+  height?: number;
+}
+
+export interface MessageContent {
+  text?: string;
+  images?: ImageContent[];
+  video?: string;
+}
+
 export interface MessageTable {
   id: Generated<number>;
   chat_id: number;
   sender_id: string;
-  type: 'text' | 'image';
-  content: string;
+  content: MessageContent;
   created_at: Generated<Date>;
 }
 export interface PushTokenTable {

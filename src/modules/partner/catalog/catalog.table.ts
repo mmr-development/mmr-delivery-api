@@ -4,6 +4,7 @@ export interface CatalogTable {
     id: Generated<number>;
     name: string;
     partner_id: number;
+    is_active: boolean;
     created_at: Generated<Date>;
     updated_at: Generated<Date>;
 }
@@ -14,6 +15,7 @@ export interface CatalogItemWithDetails {
     description: string;
     price: string | number;
     catalog_category_id: number;
+    // image_url: string | null;
     created_at: Date;
     updated_at: Date;
 }
@@ -31,6 +33,7 @@ export interface PartnerCatalogWithRelationships {
     id: number;
     name: string;
     partner_id: number;
+    is_active: boolean;
     created_at: Date;
     updated_at: Date;
     categories: CatalogCategoryWithItems[];

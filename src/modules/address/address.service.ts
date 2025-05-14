@@ -11,6 +11,8 @@ export interface AddressInput {
     city: string;
     country: string;
     countryIso?: string;
+    latitude?: number;
+    longitude?: number;
 }
 
 export function createAddressService(repository: AddressRepository): AddressService {
@@ -20,13 +22,15 @@ export function createAddressService(repository: AddressRepository): AddressServ
             const cityId = await repository.findOrCreateCity(address.city, countryId);
             const streetId = await repository.findOrCreateStreet(address.street, cityId);
             const postalCodeId = await repository.findOrCreatePostalCode(address.postalCode, cityId);
-            
+
             const addressId = await repository.findOrCreateAddress(
                 streetId,
                 address.addressDetail || '',
-                postalCodeId
+                postalCodeId,
+                address.latitude || 0,
+                address.longitude || 0
             );
-        
+
             return addressId;
         }
     }

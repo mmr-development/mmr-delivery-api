@@ -1,159 +1,168 @@
 import { FastifySchema } from 'fastify';
 import { Type, Static } from '@sinclair/typebox';
+import { CategorySchema } from './catalog-category.schema';
+import { ItemSchema } from './catalog-item.schema';
 
-// Base catalog properties
-export const CatalogProperties = {
-  id: Type.Number(),
-  partner_id: Type.Number(),
-  name: Type.String({ minLength: 1, maxLength: 255 }),
-  created_at: Type.String({ format: 'date-time' }),
-  updated_at: Type.String({ format: 'date-time' }),
-};
+// ------------------- Type Definitions -------------------
 
-// Base catalog category properties
-export const CatalogCategoryProperties = {
-  id: Type.Number(),
-  catalog_id: Type.Number(),
-  name: Type.String({ minLength: 1, maxLength: 255 }),
-  created_at: Type.String({ format: 'date-time' }),
-  updated_at: Type.String({ format: 'date-time' }),
-};
-
-// Catalog entity (full model)
+// Catalog Types
 export const CatalogSchema = Type.Object({
-  ...CatalogProperties,
+  id: Type.Number({ description: 'Unique identifier for the catalog' }),
+  partner_id: Type.Number({ description: 'ID of the partner who owns this catalog' }),
+  name: Type.String({ description: 'Name of the catalog'}),
+  description: Type.Optional(Type.String({ 
+    description: 'Optional description of the catalog',
+  })),
+  is_active: Type.Boolean({ 
+    description: 'Whether the catalog is currently active and visible to customers',
+    default: false
+  }),
+}, {
+  description: 'Represents a catalog of products or services'
 });
 
-// Catalog category entity (full model)
-export const CatalogCategorySchema = Type.Object({
-  ...CatalogCategoryProperties,
-});
-
-// Schema for creating a new catalog
 export const CreateCatalogSchema = Type.Object({
-  name: CatalogProperties.name,
+  name: Type.String({ 
+    description: 'Name of the catalog', 
+    minLength: 1,
+    maxLength: 100
+  }),
+  description: Type.Optional(Type.String({ 
+    description: 'Optional description of the catalog',
+  })),
+  is_active: Type.Optional(Type.Boolean({ 
+    description: 'Whether the catalog is active and visible to customers',
+    default: false
+  }))
+}, {
+  description: 'Data required to create a new catalog'
 });
 
-// Schema for creating a new catalog category
-export const CreateCatalogCategorySchema = Type.Object({
-  name: CatalogCategoryProperties.name,
-});
-
-// Schema for updating a catalog
 export const UpdateCatalogSchema = Type.Object({
-  name: CatalogProperties.name,
+  name: Type.Optional(Type.String({ 
+    description: 'Updated name of the catalog',
+  })),
+  description: Type.Optional(Type.String({ 
+    description: 'Updated description of the catalog',
+  })),
+  is_active: Type.Optional(Type.Boolean({ 
+    description: 'Whether the catalog is active and visible to customers'
+  }))
+}, {
+  description: 'Data that can be updated for a catalog'
 });
 
-// Schema for catalog response
-export const CatalogResponseSchema = CatalogSchema;
+// Full catalog representation with nested structure
+export const FullCatalogSchema = Type.Object({
+  ...CatalogSchema.properties,
+  categories: Type.Array(Type.Object({
+    ...CategorySchema.properties,
+    items: Type.Array(ItemSchema)
+  }), { 
+    description: 'Categories contained within this catalog' 
+  })
+}, {
+  description: 'Complete catalog with all categories and items'
+});
 
-// TypeScript types
+// ------------------- TypeScript Types -------------------
+
 export type Catalog = Static<typeof CatalogSchema>;
-export type CreateCatalogDto = Static<typeof CreateCatalogSchema>;
-export type UpdateCatalogDto = Static<typeof UpdateCatalogSchema>;
+export type CreateCatalogRequest = Static<typeof CreateCatalogSchema>;
+export type UpdateCatalogRequest = Static<typeof UpdateCatalogSchema>;
+export type FullCatalog = Static<typeof FullCatalogSchema>;
 
-// Fastify route schemas
+// ------------------- API Route Schemas -------------------
+
+// Catalog endpoints
 export const getCatalogsSchema: FastifySchema = {
   response: {
-    200: Type.Array(CatalogResponseSchema),
+    200: Type.Object({
+      catalogs: Type.Array(CatalogSchema, {
+        description: 'List of catalogs available to the partner'
+      })
+    })
   },
-  tags: ['catalogs'],
   description: 'Get all catalogs for a partner',
+  tags: ['Partner Catalogs'],
+  summary: 'List all catalogs'
 };
-
-export const GetCatalogsQuerySchema = Type.Object({
-  expand: Type.Optional(Type.String({
-      description: 'Comma-separated list of related entities to expand (e.g. categories,items)'
-  }))
-});
 
 export const getCatalogSchema: FastifySchema = {
   params: Type.Object({
-    partner_id: Type.Number(),
+    catalog_id: Type.Number({ description: 'ID of the catalog to retrieve' })
   }),
-  // response: {
-  //   200: CatalogResponseSchema,
-  // },
-  tags: ['catalogs'],
-  description: 'Get all catalogs for a partner',
+  response: {
+    200: CatalogSchema
+  },
+  description: 'Retrieve details for a specific catalog',
+  tags: ['Partner Catalogs'],
+  summary: 'Get catalog by ID'
+};
+
+export const getFullCatalogSchema: FastifySchema = {
+  params: Type.Object({
+    partner_id: Type.Number({ description: 'ID of the partner whose catalogs to retrieve' })
+  }),
+  response: {
+    200: Type.Object({
+      catalogs: Type.Array(FullCatalogSchema, {
+        description: 'Complete list of catalogs with all categories and items'
+      })
+    })
+  },
+  description: 'Get all catalogs with their complete structure of categories and items',
+  tags: ['Partner Catalogs'],
+  summary: 'Get detailed catalogs'
 };
 
 export const createCatalogSchema: FastifySchema = {
+  params: Type.Object({
+    partner_id: Type.Number({ description: 'ID of the partner who will own the catalog' })
+  }),
   body: CreateCatalogSchema,
   response: {
-    201: CatalogResponseSchema,
+    201: CatalogSchema
   },
-  tags: ['catalogs'],
-  description: 'Create a new catalog',
+  description: 'Create a new catalog for a partner',
+  tags: ['Partner Catalogs'],
+  summary: 'Create catalog'
 };
 
 export const updateCatalogSchema: FastifySchema = {
   params: Type.Object({
-    id: Type.Number(),
+    catalog_id: Type.Number({ description: 'ID of the catalog to update' })
   }),
   body: UpdateCatalogSchema,
   response: {
-    200: CatalogResponseSchema,
+    200: CatalogSchema
   },
-  tags: ['catalogs'],
-  description: 'Update a catalog by ID',
+  description: 'Update an existing catalog',
+  tags: ['Partner Catalogs'],
+  summary: 'Update catalog'
 };
 
 export const deleteCatalogSchema: FastifySchema = {
   params: Type.Object({
-    id: Type.Number(),
+    catalog_id: Type.Number({ description: 'ID of the catalog to delete' })
   }),
   response: {
-    204: Type.Null(),
+    204: Type.Null()
   },
-  tags: ['catalogs'],
-  description: 'Delete a catalog by ID',
+  description: 'Delete a specific catalog',
+  tags: ['Partner Catalogs'],
+  summary: 'Delete catalog'
 };
 
-export const CatalogCategoryResponseSchema = CatalogCategorySchema;
-
-export const createCatalogCategorySchema: FastifySchema = {
+// Schema for deleting catalog by partner_id
+export const deleteCatalogByCatalogIdSchema: FastifySchema = {
   params: Type.Object({
-    catalog_id: Type.Number(),
+    catalog_id: Type.Number({ description: 'ID of the catalog to delete'  })
   }),
-  body: CreateCatalogCategorySchema,
   response: {
-    201: CatalogCategoryResponseSchema, // Fixed: now using the correct response schema
+    204: Type.Null()
   },
-  tags: ['catalogs'],
-  description: 'Create a new catalog category',
-};
-
-export const CatalogItemProperties = {
-  id: Type.Number(),
-  catalog_category_id: Type.Number(),
-  name: Type.String({ minLength: 1, maxLength: 255 }),
-  description: Type.String(),
-  price: Type.Number(),
-  created_at: Type.String({ format: 'date-time' }),
-  updated_at: Type.String({ format: 'date-time' }),
-};
-
-export const CreateCatalogItemSchema = Type.Object({
-  name: CatalogItemProperties.name,
-  description: CatalogItemProperties.description,
-  price: CatalogItemProperties.price,
-});
-
-export const CatalogItemResponseSchema = Type.Object({
-  ...CatalogItemProperties
-});
-
-export type CreateCatalogItemDto = Static<typeof CreateCatalogItemSchema>;
-
-export const createCatalogItemSchema: FastifySchema = {
-  params: Type.Object({
-    category_id: Type.Number(),
-  }),
-  body: CreateCatalogItemSchema,
-  response: {
-    201: CatalogItemResponseSchema,
-  },
-  tags: ['catalogs'],
-  description: 'Create a new catalog item',
+  description: 'Delete a specific catalog by its ID',
+  tags: ['Partner Catalogs'],
+  summary: 'Delete partner catalogs'
 };

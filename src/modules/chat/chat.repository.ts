@@ -20,7 +20,10 @@ export interface ChatRepository {
 export function createChatRepository(db: Kysely<Database>): ChatRepository {
   return {
     async createChat() {
-      return await db.insertInto('chat').values({}).returningAll().executeTakeFirstOrThrow();
+      return await db.insertInto('chat').values({
+        created_at: new Date(),
+        updated_at: new Date()
+      }).returningAll().executeTakeFirstOrThrow();
     },
     async addUserToChat(userChat) {
       return await db.insertInto('user_chat').values(userChat).returningAll().executeTakeFirstOrThrow();
@@ -40,7 +43,10 @@ export function createChatRepository(db: Kysely<Database>): ChatRepository {
         .execute();
     },
     async createMessage(message) {
-      return await db.insertInto('message').values(message).returningAll().executeTakeFirstOrThrow();
+      return await db.insertInto('message')
+        .values(message)
+        .returningAll()
+        .executeTakeFirstOrThrow();
     },
     // async savePushToken(token) {
     //   await db.insertInto('push_token').values(token).onConflictDoNothing().execute();
