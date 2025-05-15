@@ -130,7 +130,7 @@ export function createAuthenticationTokenService(repository: RefreshTokenReposit
             const jti = crypto.randomUUID();
             const options: jwt.SignOptions = {
                 algorithm: config.jwt.algorithm as jwt.Algorithm,
-                expiresIn: config.jwt.accessTokenExpiration
+                expiresIn: '5s',
             };
 
             return {

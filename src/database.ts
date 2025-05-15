@@ -27,6 +27,7 @@ import { DeliveryTrackingTable } from './modules/delivery-tracking/delivery-trac
 import { OrderItemTable, OrderTable } from './modules/orders/order.table';
 import { CustomerTable } from './modules/customer/customer.table';
 import { PaymentTable } from './modules/payment/payment.table';
+import { CourierScheduleTable, TimeEntryTable } from './modules/employees/courier-schedule/schedule.table';
 
 export interface Database {
     refresh_token: RefreshTokenTable;
@@ -62,4 +63,6 @@ export interface Database {
     order_item: OrderItemTable;
     customer: CustomerTable;
     payment: PaymentTable;
+    courier_schedule: CourierScheduleTable;
+    time_entry: TimeEntryTable;
 }

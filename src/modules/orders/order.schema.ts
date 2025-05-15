@@ -6,6 +6,7 @@ export const PaymentMethodEnum = Type.Union([
   Type.Literal('debit_card'),
   Type.Literal('paypal'),
   Type.Literal('mobile_pay'),
+  Type.Literal('unknown'),
 ]);
 
 export type PaymentMethod = Static<typeof PaymentMethodEnum>;

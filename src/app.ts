@@ -6,7 +6,7 @@ import { createSignInMethodService, createSignInMethodRepository, signInMethodCo
 import { jwksController, createJwksService } from './modules/jwks';
 import { userController, createUserService, createUserRepository } from './modules/users';
 import { Database } from './database';
-import { DeduplicateJoinsPlugin, Kysely, PostgresDialect } from 'kysely';
+import { Kysely, PostgresDialect } from 'kysely';
 import cors from '@fastify/cors';
 import { Pool } from 'pg';
 import { config } from './config';
@@ -39,8 +39,14 @@ import multipart from '@fastify/multipart';
 import { createOrderService } from './modules/orders/order.service';
 import { createOrdersRepository } from './modules/orders/order.repository';
 import { createCustomerRepository, createCustomerService } from './modules/customer';
-import { createPaymentService } from './modules/payment/payment.service';
-import { createPaymentRepository } from './modules/payment/payment.repository';
+import { createPaymentService, createPaymentRepository } from './modules/payment';
+import * as admin from 'firebase-admin';
+import fs from 'fs';
+import path from 'path';
+import { createCourierScheduleService } from './modules/employees/courier-schedule/courier-schedule.service';
+import { createCourierScheduleRepository } from './modules/employees/courier-schedule/courier-schedule.repository';
+import { courierScheduleController } from './modules/employees/courier-schedule/courier-schedule.controller';
+
 
 export interface AppOptions {
     config: typeof config;
@@ -49,12 +55,20 @@ export interface AppOptions {
 export async function buildApp(fastify: FastifyInstance, opts: AppOptions) {
     const config = opts.config;
 
+    const serviceAccountPath = path.join(__dirname, '..', 'mmr-delivery-firebase-adminsdk-fbsvc-f295b1b259.json');
+    const serviceAccount = JSON.parse(
+        fs.readFileSync(serviceAccountPath, 'utf8')
+    );
+    
+    admin.initializeApp({
+        credential: admin.credential.cert(serviceAccount as admin.ServiceAccount),
+    })
+
     const db = new Kysely<Database>({
         dialect: new PostgresDialect({
             pool: async () => new Pool(config.database),
         }),
-        log: ['query'],
-        plugins: [new DeduplicateJoinsPlugin()],
+        log: ['query']
     });
 
     fastify.register(cors, {
@@ -152,6 +166,11 @@ export async function buildApp(fastify: FastifyInstance, opts: AppOptions) {
 
     fastify.register(orderController, {
         orderService: createOrderService(createOrdersRepository(db), createUserService(createUserRepository(db), createUserRoleService(createUserRoleRepository(db))), createAddressService(createAddressRepository(db)), createCustomerService(createCustomerRepository(db)), createPaymentService(createPaymentRepository(db)), createCatalogService(db), createPartnerService(db)),
+        prefix: '/v1',
+    })
+
+    fastify.register(courierScheduleController, {
+        courierScheduleService: createCourierScheduleService(createCourierScheduleRepository(db)),
         prefix: '/v1',
     })
 

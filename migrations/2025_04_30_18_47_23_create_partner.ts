@@ -6,6 +6,7 @@ export async function up(db: Kysely<any>): Promise<void> {
         .addColumn('name', 'varchar(255)', (col) => col.notNull())
         .addColumn('phone_number', 'varchar(20)', (col) => col.notNull())
         .addColumn('address_id', 'integer', (col) => col.notNull().references('address.id').onDelete('cascade'))
+        .addColumn('image_url', 'varchar(255)', (col) => col.notNull())
         .addColumn('status', 'varchar(50)', (col) => col.notNull().defaultTo('pending').check(sql`status IN ('pending', 'reviewing', 'approved', 'rejected', 'suspended')`))
         .addColumn('delivery_method_id', 'integer', (col) => col.notNull().references('delivery_method.id').onDelete('cascade'))
         .addColumn('business_type_id', 'integer', (col) => col.notNull().references('business_type.id').onDelete('cascade'))

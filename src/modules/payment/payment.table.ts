@@ -2,7 +2,7 @@ import { Generated, Insertable, Selectable, Updateable } from 'kysely';
 
 
 export type PaymentStatus = 'pending' | 'completed' | 'failed';
-export type PaymentMethod = 'credit_card' | 'debit_card' | 'paypal' | 'mobile_pay';
+export type PaymentMethod = 'credit_card' | 'debit_card' | 'paypal' | 'mobile_pay' | 'unknown';
 
 export interface PaymentTable {
     id: Generated<number>;
