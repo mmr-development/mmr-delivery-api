@@ -13,11 +13,32 @@ export interface PartnerApplicationRepository {
 export function createPartnerApplicationRepository(db: Kysely<Database>): PartnerApplicationRepository {
     return {
         async create(application: InsertablePartnerRow): Promise<PartnerRow> {
+            console.log('Creating partner application:', application);
             const insertedApplication = await db
                 .insertInto('partner')
                 .values(application)
                 .returningAll()
                 .executeTakeFirstOrThrow();
+
+            // fill out partner hours with default values not from the request
+            // parnter id, day of week as int, opens_at, closes_at
+
+            const partnerId = insertedApplication.id;
+            const partnerHours = [
+                { partner_id: partnerId, day_of_week: 0, opens_at: '08:00', closes_at: '17:00' }, // Monday
+                { partner_id: partnerId, day_of_week: 1, opens_at: '08:00', closes_at: '17:00' }, // Tuesday
+                { partner_id: partnerId, day_of_week: 2, opens_at: '08:00', closes_at: '17:00' }, // Wednesday
+                { partner_id: partnerId, day_of_week: 3, opens_at: '08:00', closes_at: '17:00' }, // Thursday
+                { partner_id: partnerId, day_of_week: 4, opens_at: '08:00', closes_at: '17:00' }, // Friday
+                { partner_id: partnerId, day_of_week: 5, opens_at: '09:00', closes_at: '15:00' }, // Saturday
+                { partner_id: partnerId, day_of_week: 6, opens_at: '10:00', closes_at: '14:00' }, // Sunday
+            ]
+            
+            await db
+                .insertInto('partner_hour')
+                .values(partnerHours)
+                .execute();
+
 
             return insertedApplication;
         },
