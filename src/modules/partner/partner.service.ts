@@ -5,7 +5,7 @@ import { PartnerRow } from './partner.table';
 
 export interface PartnerService {
     getPartners(filters: PartnerFilter): Promise<PartnerListing>;
-    findPartnerByUserId(userId: string): Promise<any>;
+    findPartnerByUserId(userId: string): Promise<any[]>;
     findPartnerById(id: number): Promise<PartnerRow | undefined>;
 }
 
@@ -89,12 +89,12 @@ export function createPartnerService(db: Kysely<Database>): PartnerService {
                 }
             };
         },
-        findPartnerByUserId: async function (userId: string): Promise<any> {
+        findPartnerByUserId: async function (userId: string): Promise<any[]> {
             const partner = await db
                 .selectFrom('partner')
                 .where('user_id', '=', userId)
                 .selectAll()
-                .executeTakeFirst();
+                .execute();
 
             return partner;
         },

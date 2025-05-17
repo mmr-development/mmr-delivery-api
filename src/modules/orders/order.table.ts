@@ -26,7 +26,7 @@ export interface OrderItemTable {
     updated_at: Generated<Date>;
 }
 
-export type OrderWithDetailsRow = {
+export type OrderBasicInfo = {
     order_id: number;
     partner_id: number;
     delivery_type: DeliveryType;
@@ -34,30 +34,57 @@ export type OrderWithDetailsRow = {
     requested_delivery_time: Date;
     tip_amount: number | string;
     total_amount: number | string;
-    total_items: number;
     note: string | null;
     created_at: Date;
     updated_at: Date;
-    // Customer fields
+};
+
+export type CustomerInfo = {
     first_name: string;
     last_name: string;
     email: string;
     phone_number: string;
-    // // Address fields
+};
+
+export type AddressInfo = {
     country: string;
     city: string;
     street: string;
     postal_code: string;
     address_detail: string;
-    items: {
-        catalog_item_id: number;
-        quantity: number;
-        item_note: string | null;
-        price: number;
-        item_name: string;
-    }[];
-    // // Payment fields
+};
+
+export type OrderItemInfo = {
+    catalog_item_id: number;
+    quantity: number;
+    item_note: string | null;
+    price: number;
+    item_name: string;
+};
+
+export type PaymentInfo = {
     payment_method: PaymentMethod;
+};
+
+// Compose types based on API needs
+export type OrderSummary = OrderBasicInfo & {
+    total_items: number;
+};
+
+export type OrderWithCustomer = OrderSummary & CustomerInfo;
+
+export type OrderWithAddress = OrderSummary & AddressInfo;
+
+export type OrderWithItems = OrderSummary & {
+    items: OrderItemInfo[];
+};
+
+export type OrderWithPayment = OrderSummary & PaymentInfo;
+
+// Keep the full type for backward compatibility
+export type OrderWithDetailsRow = OrderBasicInfo & CustomerInfo & AddressInfo & PaymentInfo & {
+    total_items: number;
+    items: OrderItemInfo[];
 };
 
 export type OrderRow = Selectable<OrderTable>;

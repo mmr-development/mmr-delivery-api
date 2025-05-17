@@ -86,8 +86,7 @@ export function createCourierScheduleRepository(db: Kysely<Database>): ScheduleR
                 query = query.limit(options.limit);
             }
             
-            return await query.orderBy('date', 'asc')
-                .orderBy('start_time', 'asc')
+            return await query.orderBy('start_datetime', 'asc')
                 .execute();
         },
         

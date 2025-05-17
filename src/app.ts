@@ -10,10 +10,11 @@ import { Kysely, PostgresDialect } from 'kysely';
 import cors from '@fastify/cors';
 import { Pool } from 'pg';
 import { config } from './config';
+import { partnerApplicationController } from './modules/partner/partner-application';
 import { partnerController } from './modules/partner';
 import { employeeController } from './modules/employees';
 import { createEmailService } from './modules/email';
-import { createPartnerApplicationService, createPartnerApplicationRepository } from './modules/partner';
+import { createPartnerApplicationService, createPartnerApplicationRepository } from './modules/partner/partner-application';
 import { createDeliveryMethodService } from './modules/partner/delivery-method';
 import { createBusinessTypeService } from './modules/partner/business-type';
 import { createCatalogService } from './modules/partner/catalog';
@@ -46,6 +47,18 @@ import path from 'path';
 import { createCourierScheduleService } from './modules/employees/courier-schedule/courier-schedule.service';
 import { createCourierScheduleRepository } from './modules/employees/courier-schedule/courier-schedule.repository';
 import { courierScheduleController } from './modules/employees/courier-schedule/courier-schedule.controller';
+import { orderWebsocketPlugin } from './modules/orders/order.ws';
+import fastifyStatic from '@fastify/static';
+import { TypeBoxTypeProvider } from '@fastify/type-provider-typebox'
+import fastifyWebsocket from '@fastify/websocket';
+import { recommendationController} from './modules/recommendations/recommendation.controller';
+import { createRecommendationService } from './modules/recommendations/recommendation.service';
+import { 
+    createDeliveryRepository, 
+    createDeliveryService, 
+    deliveryController,
+    deliveryWebsocketPlugin 
+} from './modules/delivery';
 
 
 export interface AppOptions {
@@ -59,9 +72,18 @@ export async function buildApp(fastify: FastifyInstance, opts: AppOptions) {
     const serviceAccount = JSON.parse(
         fs.readFileSync(serviceAccountPath, 'utf8')
     );
-    
+
     admin.initializeApp({
         credential: admin.credential.cert(serviceAccount as admin.ServiceAccount),
+    })
+
+    fastify.withTypeProvider<TypeBoxTypeProvider>();
+
+    fastify.register(fastifyWebsocket);
+
+    fastify.register(fastifyStatic, {
+        root: path.join(__dirname, '..', 'public'),
+        prefix: '/public/',
     })
 
     const db = new Kysely<Database>({
@@ -84,10 +106,11 @@ export async function buildApp(fastify: FastifyInstance, opts: AppOptions) {
             'http://10.130.54.44:8081',
             'https://172.30.80.1:5501',
             'https://172.22.240.1:5501',
-            'http://127.0.0.1:5501',  // Add this line
+            'http://127.0.0.1:5501',
             'https://127.0.0.1:5501',
             'https://10.130.54.44:8081',
-            'http://10.130.54.44:8081'
+            'http://10.130.54.44:8081',
+            'https://8ce3-77-214-126-101.ngrok-free.app'
         ],
         methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
         allowedHeaders: ['Content-Type', 'Authorization'],
@@ -120,13 +143,25 @@ export async function buildApp(fastify: FastifyInstance, opts: AppOptions) {
     })
 
     fastify.register(partnerController, {
-        partnerApplicationService: createPartnerApplicationService(createPartnerApplicationRepository(db), createUserService(createUserRepository(db), createUserRoleService(createUserRoleRepository(db))), createAddressService(createAddressRepository(db))),
         deliveryMethodService: createDeliveryMethodService(db),
         businessTypeService: createBusinessTypeService(db),
-        partnerService: createPartnerService(db), 
+        partnerService: createPartnerService(db),
         partnerHourService: createPartnerHourService(createPartnerHourRepository(db)),
         prefix: '/v1'
     })
+
+    // Update the registration of partnerApplicationController with the correct dependencies
+    fastify.register(partnerApplicationController, {
+        partnerApplicationService: createPartnerApplicationService(
+            createPartnerApplicationRepository(db),
+            createUserService(createUserRepository(db), createUserRoleService(createUserRoleRepository(db))),
+            createAddressService(createAddressRepository(db)),
+            createEmailService(config),
+            createUserRoleService(createUserRoleRepository(db)),
+            createPartnerService(db),
+        ),
+        prefix: '/v1/partner-applications'
+    });
 
     fastify.register(catalogController, {
         catalogService: createCatalogService(db),
@@ -151,6 +186,15 @@ export async function buildApp(fastify: FastifyInstance, opts: AppOptions) {
         prefix: '/v1',
     })
 
+    fastify.register(recommendationController, {
+        recommendationService: createRecommendationService(
+            createOrdersRepository(db),
+            createCatalogService(db)
+        ),
+        prefix: '/v1',
+    })
+    
+
     fastify.register(signInMethodController, {
         prefix: '/v1',
     })
@@ -173,6 +217,34 @@ export async function buildApp(fastify: FastifyInstance, opts: AppOptions) {
         courierScheduleService: createCourierScheduleService(createCourierScheduleRepository(db)),
         prefix: '/v1',
     })
+
+    fastify.register(orderWebsocketPlugin(createOrderService(createOrdersRepository(db), createUserService(createUserRepository(db), createUserRoleService(createUserRoleRepository(db))), createAddressService(createAddressRepository(db)), createCustomerService(createCustomerRepository(db)), createPaymentService(createPaymentRepository(db)), createCatalogService(db), createPartnerService(db))));
+
+    // Register delivery services
+    const deliveryRepository = createDeliveryRepository(db);
+    const orderService = createOrderService(
+        createOrdersRepository(db), 
+        createUserService(createUserRepository(db), createUserRoleService(createUserRoleRepository(db))), 
+        createAddressService(createAddressRepository(db)), 
+        createCustomerService(createCustomerRepository(db)), 
+        createPaymentService(createPaymentRepository(db)), 
+        createCatalogService(db), 
+        createPartnerService(db)
+    );
+    const deliveryService = createDeliveryService(
+        deliveryRepository, 
+        orderService,
+        createOrdersRepository(db) // Add this parameter
+    );
+    
+    // Register delivery controller for REST endpoints
+    fastify.register(deliveryController, {
+        deliveryService,
+        prefix: '/v1',
+    });
+    
+    // Register delivery websocket plugin
+    fastify.register(deliveryWebsocketPlugin(deliveryService));
 
     return fastify;
 }

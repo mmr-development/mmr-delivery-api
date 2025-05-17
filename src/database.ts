@@ -1,8 +1,6 @@
 import { UserTable } from './modules/users/user.table';
-import { RefreshTokenTable } from './modules/authentication/refresh-token.table';
 import { SignInMethodTable } from './modules/users/sign-in-method/sign-in-method.table';
 import { PasswordSignInMethodTable } from './modules/users/sign-in-method/password-sign-in-method.table';
-import { PasswordResetTokenTable } from './modules/authentication/password-reset-token.table';
 import { PartnerTable } from './modules/partner/partner.table';
 import { DeliveryMethodTable } from './modules/partner/delivery-method/delivery-method.table';
 import { BusinessTypeTable } from './modules/partner/business-type/business-type.table';
@@ -10,11 +8,6 @@ import { CatalogTable } from './modules/partner/catalog/catalog.table';
 import { CatalogCategoryTable } from './modules/partner/catalog/catalog-category.table';
 import { CatalogItemTable } from './modules/partner/catalog/catalog-item.table';
 import { PartnerHourTable } from './modules/partner/partner-hour.table';
-import { AddressTable } from './modules/address/address.table';
-import { StreetTable } from './modules/address/street.table';
-import { CountryTable } from './modules/address/country.table';
-import { CityTable } from './modules/address/city.table';
-import { PostalCodeTable } from './modules/address/postal-code.table';
 import { UserRoleTable } from './modules/users/user-role/user-role.table';
 import { RoleTable } from './modules/role/role.table';
 import { VehicleTypeTable } from './modules/employees/vehicle-types/vehicle-type.table';
@@ -28,6 +21,9 @@ import { OrderItemTable, OrderTable } from './modules/orders/order.table';
 import { CustomerTable } from './modules/customer/customer.table';
 import { PaymentTable } from './modules/payment/payment.table';
 import { CourierScheduleTable, TimeEntryTable } from './modules/employees/courier-schedule/schedule.table';
+import { CountryTable, CityTable, PostalCodeTable, StreetTable, AddressTable } from './modules/address/address.tables';
+import { RefreshTokenTable, PasswordResetTokenTable } from './modules/authentication';
+import { DeliveryTable, CourierAvailabilityTable, CourierLocationTable } from './modules/delivery/delivery.table';
 
 export interface Database {
     refresh_token: RefreshTokenTable;
@@ -65,4 +61,7 @@ export interface Database {
     payment: PaymentTable;
     courier_schedule: CourierScheduleTable;
     time_entry: TimeEntryTable;
+    delivery: DeliveryTable;
+    courier_availability: CourierAvailabilityTable;
+    courier_location: CourierLocationTable;
 }

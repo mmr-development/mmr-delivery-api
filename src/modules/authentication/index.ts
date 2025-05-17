@@ -4,3 +4,4 @@ export * from './authentication.service';
 export * from './refresh-token.repository';
 export * from './password-reset-token.repository';
 export * from './password-reset.service';
+export * from './auth.tables';

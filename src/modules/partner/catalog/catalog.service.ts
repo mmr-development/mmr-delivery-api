@@ -11,6 +11,7 @@ import { UpdateCatalogCategoryRequest } from './catalog.schema';
 import { UpdateItemRequest } from './catalog-item.schema';
 import { promises as fs } from 'fs';
 import path from 'path';
+import { BulkCategory } from './catalog-category.schema';
 
 export interface CatalogService {
     createCatalog(partnerId: number, catalog: CreateCatalogRequest): Promise<Catalog>;
@@ -29,6 +30,8 @@ export interface CatalogService {
     deleteCategoryItem(itemId: number): Promise<void>;
     uploadMenuImage(catalogId: number, filename: string, buffer: Buffer): Promise<string>;
     findCatalogItemPrice(itemId: number): Promise<number | null>;
+    uploadCatalogItemImage(catalogId: number, filename: string, buffer: Buffer): Promise<string>;
+    bulkCreateCategoriesWithItems(catalogId: number, categories: BulkCategory[]): Promise<{ categories: any[] }>;
 }
 
 export function createCatalogService(db: Kysely<Database>): CatalogService {
@@ -100,6 +103,7 @@ export function createCatalogService(db: Kysely<Database>): CatalogService {
                                             'catalog_item.name',
                                             'catalog_item.description',
                                             'catalog_item.price',
+                                            'catalog_item.image_url',
                                             'catalog_item.catalog_category_id',
                                             'catalog_item.created_at',
                                             'catalog_item.updated_at'
@@ -161,6 +165,7 @@ export function createCatalogService(db: Kysely<Database>): CatalogService {
                     name: item.name,
                     description: item.description,
                     price: item.price,
+                    image_url: '',
                     catalog_category_id: catalogCategoryId,
                 })
                 .returningAll()
@@ -236,6 +241,97 @@ export function createCatalogService(db: Kysely<Database>): CatalogService {
                 
             return item ? Number(item.price) : null;
         },
+        async uploadCatalogItemImage(catalogId: number, filename: string, buffer: Buffer): Promise<string> {
+            const item = await this.findCatalogItemById(catalogId);
+            if (!item) {
+                throw new Error(`Catalog item with ID ${catalogId} not found`);
+            }
+            
+            // Create directory structure if it doesn't exist
+            const uploadDir = path.join(process.cwd(), 'public', 'uploads', 'catalog-items');
+            
+            try {
+                await fs.mkdir(uploadDir, { recursive: true });
+            } catch (err) {
+                // Directory already exists or cannot be created
+                console.error('Failed to create directory:', err);
+                throw new Error('Failed to create upload directory');
+            }
+        
+            // Generate a unique filename
+            const fileExtension = path.extname(filename);
+            const uniqueFilename = `catalog-item-${catalogId}-${Date.now()}${fileExtension}`;
+            const filePath = path.join(uploadDir, uniqueFilename);
+            
+            // Save the file
+            await fs.writeFile(filePath, buffer);
+            
+            // Generate URL for the image
+            const imageUrl = `/uploads/catalog-items/${uniqueFilename}`;
+            
+            // Update the catalog item with the image URL
+            await db
+                .updateTable('catalog_item')
+                .set({ image_url: imageUrl })
+                .where('id', '=', catalogId)
+                .execute();
+            
+            return imageUrl;
+        },
+        // Add this method to your CatalogService interface and implementation
+
+async bulkCreateCategoriesWithItems(catalogId: number, categories: BulkCategory[]): Promise<{ categories: any[] }> {
+    // Create an array to hold all created categories with their items
+    const createdCategories: Array<CatalogCategoryRow & { items: CatalogItemRow[] }> = [];
+    
+    // Use a transaction to ensure all operations succeed or fail together
+    return db.transaction().execute(async (trx) => {
+        for (const category of categories) {
+            // Create the category
+            const createdCategory = await trx
+                .insertInto('catalog_category')
+                .values({
+                    catalog_id: catalogId,
+                    name: category.name,
+                    created_at: new Date(),
+                    updated_at: new Date()
+                })
+                .returningAll()
+                .executeTakeFirstOrThrow();
+            
+            // Add items if they exist
+            const createdItems = [];
+            if (category.items && category.items.length > 0) {
+                for (const item of category.items) {
+                    const createdItem = await trx
+                        .insertInto('catalog_item')
+                        .values({
+                            catalog_category_id: createdCategory.id,
+                            name: item.name,
+                            description: item.description || '',
+                            price: item.price,
+                            image_url: '',
+                            created_at: new Date(),
+                            updated_at: new Date()
+                        })
+                        .returningAll()
+                        .executeTakeFirstOrThrow();
+                    
+                    createdItems.push(createdItem);
+                }
+            }
+            
+            // Create a new object combining category with its items
+            const categoryWithItems = {
+                ...createdCategory,
+                items: createdItems
+            };
+            createdCategories.push(categoryWithItems as CatalogCategoryRow & { items: CatalogItemRow[] });
+        }
+        
+        return { categories: createdCategories };
+    });
+}
     };
 }
 
@@ -261,7 +357,7 @@ export function catalogRowToPartnerCatalog(catalog: PartnerCatalogWithRelationsh
                         description: item.description,
                         price: Number(item.price),
                         catalog_category_id: item.catalog_category_id,
-                        // image_url: item.image_url,
+                        image_url: item.image_url,
                         created_at: item.created_at, // Ensure this is included
                         updated_at: item.updated_at  // Ensure this is included
                     }))

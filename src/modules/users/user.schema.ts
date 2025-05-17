@@ -87,12 +87,12 @@ export const UsersResponseSchema = Type.Object(
         }),
         pagination: Type.Optional(Type.Object(
             {
-                total: Type.Number({
+                total: Type.Optional(Type.Number({
                     description: 'Total number of users available',
-                }),
-                offset: Type.Number({
+                })),
+                offset: Type.Optional(Type.Number({
                     description: 'Current offset (number of users skipped)',
-                }),
+                })),
                 limit: Type.Optional(Type.Number({
                     description: 'Current limit (maximum number of users returned)',
                 }))
@@ -101,7 +101,7 @@ export const UsersResponseSchema = Type.Object(
     },
 );
 
-export const getAllUsersSchema: FastifySchema = {
+export const getAllUsersSchema = {
     querystring: UserSearchQuerySchema,
     response: {
         200: UsersResponseSchema

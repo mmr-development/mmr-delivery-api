@@ -47,33 +47,33 @@ export function createAddressRepository(db: Kysely<Database>): AddressRepository
                 .where('name', '=', name)
                 .select('id')
                 .executeTakeFirst();
-        
+
             if (existing) return existing.id;
-        
+
             const result = await db.insertInto('street')
                 .values({ name })
                 .returning('id')
                 .executeTakeFirstOrThrow();
-        
+
             return result.id;
         },
         async findOrCreatePostalCode(code: string, cityId: number): Promise<number> {
             const existing = await db.selectFrom('postal_code')
                 .where('code', '=', code)
-                .where('city_id', '=', cityId) 
+                .where('city_id', '=', cityId)
                 .select('id')
                 .executeTakeFirst();
-            
+
             if (existing) return existing.id;
-            
+
             const result = await db.insertInto('postal_code')
-                .values({ 
+                .values({
                     code,
                     city_id: cityId
                 })
                 .returning('id')
                 .executeTakeFirstOrThrow();
-            
+
             return result.id;
         },
         async findOrCreateAddress(streetId: number, addressDetail: string, postalCodeId: number, latitude: number, longitude: number): Promise<number> {
@@ -83,9 +83,9 @@ export function createAddressRepository(db: Kysely<Database>): AddressRepository
                 .where('postal_code_id', '=', postalCodeId)
                 .select('id')
                 .executeTakeFirst();
-    
+
             if (existing) return existing.id;
-    
+
             const result = await db.insertInto('address')
                 .values({
                     street_id: streetId,
@@ -96,7 +96,7 @@ export function createAddressRepository(db: Kysely<Database>): AddressRepository
                 })
                 .returning('id')
                 .executeTakeFirstOrThrow();
-    
+
             return result.id;
         }
     }

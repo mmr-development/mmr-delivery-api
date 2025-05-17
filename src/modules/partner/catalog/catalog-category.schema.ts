@@ -139,3 +139,98 @@ export const deleteCategorySchema: FastifySchema = {
     tags: ['Partner Catalog Categories'],
     summary: 'Delete category'
 };
+
+// Add this schema to your catalog.schema.ts file
+
+export const bulkCreateCategoriesSchema = {
+  summary: 'Create multiple categories with items in bulk',
+  tags: ['Partner Catalogs'],
+  params: {
+    type: 'object',
+    required: ['catalog_id'],
+    properties: {
+      catalog_id: { type: 'number' }
+    }
+  },
+  body: {
+    type: 'object',
+    required: ['categories'],
+    properties: {
+      categories: {
+        type: 'array',
+        items: {
+          type: 'object',
+          required: ['name'],
+          properties: {
+            name: { type: 'string' },
+            items: {
+              type: 'array',
+              items: {
+                type: 'object',
+                required: ['name', 'price'],
+                properties: {
+                  name: { type: 'string' },
+                  description: { type: 'string' },
+                  price: { type: 'number' },
+                  image_url: { type: 'string' }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  response: {
+    201: {
+      type: 'object',
+      properties: {
+        categories: {
+          type: 'array',
+          items: {
+            type: 'object',
+            properties: {
+              id: { type: 'number' },
+              catalog_id: { type: 'number' },
+              name: { type: 'string' },
+              created_at: { type: 'string', format: 'date-time' },
+              updated_at: { type: 'string', format: 'date-time' },
+              items: {
+                type: 'array',
+                items: {
+                  type: 'object',
+                  properties: {
+                    id: { type: 'number' },
+                    catalog_category_id: { type: 'number' },
+                    name: { type: 'string' },
+                    description: { type: 'string' },
+                    price: { type: 'number' },
+                    image_url: { type: 'string' },
+                    created_at: { type: 'string', format: 'date-time' },
+                    updated_at: { type: 'string', format: 'date-time' }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+};
+
+export interface BulkCategoryItem {
+  name: string;
+  description?: string;
+  price: number;
+  image_url?: string;
+}
+
+export interface BulkCategory {
+  name: string;
+  items?: BulkCategoryItem[];
+}
+
+export interface BulkCategoriesRequest {
+  categories: BulkCategory[];
+}

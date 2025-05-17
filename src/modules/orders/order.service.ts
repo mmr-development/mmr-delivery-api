@@ -1,186 +1,160 @@
 import { OrdersRepository } from './order.repository';
-import { OrderWithDetailsRow } from './order.table';
 import { UserService } from '../users/user.service';
 import { AddressService } from '../address';
-import { CreateOrderRequest, CreateOrderResponse, GetOrdersQuery, OrderDetails, OrderItem } from './order.schema';
+import { CreateOrderRequest, CreateOrderResponse, GetOrdersQuery, OrderDetails } from './order.schema';
 import { CustomerService } from '../customer/customer.service';
 import { PaymentService } from '../payment/payment.service';
 import { CatalogService } from '../partner/catalog';
 import { PartnerService } from '../partner/partner.service';
 import { ControllerError } from '../../utils/errors';
+import { broadcastOrderStatusUpdate } from './order.ws';
+import { mapOrderRowToDetails } from './order-mapper';
+import { OrderItemService } from './order-item.service';
+import { CustomerAdapter } from './customer.adapter';
+import { DeliveryService } from '../delivery/delivery.service';
+
+// Simplified interface
+interface OrderUpdateData {
+  status?: string;
+  requested_delivery_time?: Date;
+  note?: string;
+  [key: string]: any;
+}
 
 export interface OrderService {
-    createOrder(order: CreateOrderRequest): Promise<CreateOrderResponse>;
-    createOrderItems(orderId: number, items: OrderItem[]): Promise<OrderItem[]>;
-    prepareCustomerForOrder(customer: any): Promise<any>;
-    processOrderItems(items: OrderItem[], tipAmount?: number): Promise<{ itemsWithPrices: OrderItem[], total_amount: number }>;
-    findOrders(options?: GetOrdersQuery): Promise<{ orders: OrderDetails[], pagination: { total: number, limit?: number, offset?: number } }>;
+  createOrder(order: CreateOrderRequest): Promise<CreateOrderResponse>;
+  findOrders(options?: GetOrdersQuery): Promise<{ 
+    orders: OrderDetails[], 
+    pagination: { total: number, limit?: number, offset?: number } 
+  }>;
+  findOrderById(orderId: number): Promise<OrderDetails | null>;
+  updateOrder(orderId: number, orderData: OrderUpdateData): Promise<OrderDetails>;
 }
 
-export class PartnerNotFoundError extends Error { }
-export class CatalogItemNotFoundError extends Error { }
+export function createOrderService(
+  ordersRepository: OrdersRepository, 
+  userService: UserService, 
+  addressService: AddressService, 
+  customerService: CustomerService, 
+  paymentService: PaymentService, 
+  catalogService: CatalogService, 
+  partnerService: PartnerService,
+  deliveryService?: DeliveryService  // Add optional delivery service
+): OrderService {
+  // Create helper services
+  const itemService = new OrderItemService(catalogService, ordersRepository);
+  const customerAdapter = new CustomerAdapter(userService, addressService, customerService);
 
-export function createOrderService(ordersRepository: OrdersRepository, userService: UserService, addressService: AddressService, customerService: CustomerService, paymentService: PaymentService, catalogService: CatalogService, partnerService: PartnerService): OrderService {
-    return {
-        createOrder: async function (order: CreateOrderRequest): Promise<CreateOrderResponse> {
-            const customer = await this.prepareCustomerForOrder(order.customer);
-
-            const { items, ...orderWithoutItems } = order.order;
-
-            const partner = await partnerService.findPartnerById(order.order.partner_id);
-
-            if (!partner) {
-                throw new ControllerError(404, 'PartnerNotFound', 'Partner not found');
+  return {
+    async createOrder(order: CreateOrderRequest): Promise<CreateOrderResponse> {
+      // Verify partner exists
+      const partner = await partnerService.findPartnerById(order.order.partner_id);
+      if (!partner) {
+        throw new ControllerError(404, 'PartnerNotFound', 'Partner not found');
+      }
+      
+      // Process customer and items in parallel
+      const [customerId, itemsResult] = await Promise.all([
+        customerAdapter.prepareForOrder(order.customer),
+        itemService.processItems(order.order.items, order.order.tip_amount)
+      ]);
+      
+      // Create order record
+      const { items, ...orderWithoutItems } = order.order;
+      const createdOrder = await ordersRepository.createOrder({
+        ...orderWithoutItems,
+        customer_id: customerId,
+        status: 'pending',
+        total_amount: itemsResult.totalAmount,
+        tip_amount: order.order.tip_amount ?? 0
+      });
+      
+      // Create order items and payment record in parallel
+      await Promise.all([
+        itemService.createOrderItems(createdOrder.id, itemsResult.itemsWithPrices),
+        paymentService.createPayment({
+          order_id: createdOrder.id,
+          payment_status: 'pending',
+          payment_method: order.payment.method
+        })
+      ]);
+      
+      return {
+        message: "Order created successfully",
+        order_id: createdOrder.id,
+        status_url: `orders/${createdOrder.id}/status`,
+      };
+    },
+    
+    async findOrders(options?: GetOrdersQuery) {
+      const [orders, totalCount] = await Promise.all([
+        ordersRepository.findOrders(options),
+        ordersRepository.countOrders(options)
+      ]);
+      
+      return {
+        orders: orders?.map(mapOrderRowToDetails) || [],
+        pagination: {
+          total: totalCount,
+          ...(options?.limit !== undefined && { limit: options.limit }),
+          ...(options?.offset !== undefined && { offset: options.offset })
+        }
+      };
+    },
+    
+    async findOrderById(orderId: number) {
+      try {
+        const orderDetails = await ordersRepository.findOrderById(orderId);
+        return orderDetails ? mapOrderRowToDetails(orderDetails) : null;
+      } catch (error) {
+        return null;
+      }
+    },
+    
+    async updateOrder(orderId: number, orderData: OrderUpdateData) {
+      // Save previous status to check for status changes
+      let previousStatus = null;
+      
+      try {
+        const currentOrder = await ordersRepository.findOrderById(orderId);
+        previousStatus = currentOrder.status;
+      } catch (err) {
+        console.log(`Could not retrieve previous status for order ${orderId}`);
+      }
+      
+      // Update order
+      const [updatedOrder] = await Promise.all([
+        ordersRepository.updateOrder(orderId, orderData).catch(() => {
+          throw new ControllerError(404, 'OrderNotFound', 'Order not found');
+        }),
+        orderData.status ? broadcastOrderStatusUpdate(orderId, orderData.status) : Promise.resolve()
+      ]);
+      
+      // Check if status changed to ready and if it's a delivery-type order
+      if (orderData.status === 'ready' && 
+          previousStatus !== 'ready' && 
+          deliveryService && 
+          updatedOrder.delivery_type === 'delivery') {
+        console.log(`Order #${orderId} is now ready for delivery - triggering automatic assignment`);
+        
+        // Trigger automatic delivery assignment in background
+        Promise.resolve().then(() => {
+          deliveryService.assignDeliveryAutomatically(orderId).then(delivery => {
+            if (delivery) {
+              console.log(`Successfully auto-assigned delivery #${delivery.id} for order #${orderId} to courier ${delivery.courier_id}`);
+            } else {
+              console.log(`No couriers available for auto-assignment of order #${orderId}, will retry later`);
+              // Queue for retry (you could implement a retry mechanism here)
             }
-
-            const { itemsWithPrices, total_amount } = await this.processOrderItems(order.order.items, order.order.tip_amount);
-
-            const orderData = {
-                ...orderWithoutItems,
-                customer_id: customer.id,
-                status: 'pending',
-                total_amount: total_amount,
-            };
-
-            const createdOrder = await ordersRepository.createOrder(orderData)
-
-            await this.createOrderItems(createdOrder.id, itemsWithPrices);
-
-            paymentService.createPayment({
-                order_id: createdOrder.id,
-                payment_status: 'pending',
-                payment_method: order.payment.method
-            })
-
-            return {
-                message: "Order created successfully",
-            }
-        },
-        createOrderItems: async function (orderId: number, items: OrderItem[]): Promise<OrderItem[]> {
-            const insertableOrderItems = items.map(item => ({
-                order_id: orderId,
-                catalog_item_id: item.catalog_item_id,
-                quantity: item.quantity,
-                price: item.price ?? 0,
-                note: item.note ?? null,
-            }));
-
-            const createdOrderItems = await ordersRepository.createOrderItems(insertableOrderItems);
-
-            return createdOrderItems.map(item => ({
-                id: item.id,
-                order_id: item.order_id,
-                catalog_item_id: item.catalog_item_id,
-                quantity: item.quantity,
-                note: item.note ? item.note : undefined,
-                price: item.price,
-                created_at: item.created_at,
-                updated_at: item.updated_at,
-            }));
-        },
-        prepareCustomerForOrder: async function (customerData: any): Promise<any> {
-            const addressId = await addressService.createAddress(customerData.address);
-            const user = await userService.createCustomerUser(customerData);
-            return await customerService.createOrFindCustomer({
-                user_id: user.id,
-                address_id: addressId,
-            });
-        },
-        async processOrderItems(items, tipAmount = 0) {
-            let total_amount = 0;
-            const itemsWithPrices = [];
-
-            for (const item of items) {
-                const catalogItem = await catalogService.findCatalogItemById(item.catalog_item_id);
-                if (!catalogItem) {
-                    throw new ControllerError(404, 'CatalogItemNotFound',
-                        `Catalog item with ID ${item.catalog_item_id} not found`);
-                }
-
-                const price = await catalogService.findCatalogItemPrice(item.catalog_item_id);
-                if (price === null) {
-                    throw new ControllerError(404, 'PriceNotFound',
-                        `Price for catalog item with ID ${item.catalog_item_id} not found`);
-                }
-
-                total_amount += price * item.quantity;
-                itemsWithPrices.push({ ...item, price });
-            }
-
-            total_amount += Number(tipAmount) || 0;
-
-            return { itemsWithPrices, total_amount };
-        },
-        findOrders: async function (options?: GetOrdersQuery): Promise<{ orders: OrderDetails[], pagination: { total: number, limit?: number, offset?: number } }> {
-            const limit = options?.limit
-            const offset = options?.offset
-
-            const [ordersRow, totalOrders] = await Promise.all([
-                ordersRepository.findOrders(options),
-                ordersRepository.countOrders(options)
-            ]);
-
-            if (ordersRow) {
-                return {
-                    orders: ordersRow.map(rowToOrder),
-                    pagination: {
-                        total: totalOrders,
-                        limit: limit,
-                        offset: offset
-                    }
-                };
-            }
-
-            return {
-                orders: [],
-                pagination: {
-                    total: totalOrders,
-                    limit: limit,
-                    offset: offset
-                }
-            };
-        },
-    };
-}
-
-export function rowToOrder(row: OrderWithDetailsRow): OrderDetails {
-    return {
-        id: row.order_id,
-        partner_id: row.partner_id,
-        customer: {
-            first_name: row.first_name,
-            last_name: row.last_name,
-            email: row.email,
-            phone_number: row.phone_number,
-            address: {
-                country: row.country,
-                city: row.city,
-                street: row.street,
-                postal_code: row.postal_code,
-                address_detail: row.address_detail,
-            }
-        },
-        delivery_type: row.delivery_type,
-        status: row.status,
-        requested_delivery_time: row.requested_delivery_time,
-        tip_amount: Number(row.tip_amount),
-        total_amount: Number(row.total_amount),
-        total_items: row.total_items,
-        note: row.note || undefined,
-        items: Array.isArray(row.items)
-            ? row.items.map(item => ({
-                catalog_item_id: item.catalog_item_id,
-                quantity: item.quantity,
-                note: item.item_note || undefined,
-                price: item.price,
-                name: item.item_name
-            }))
-            : [],
-        payment: {
-            method: row.payment_method || 'unknown',
-            status: row.status || 'pending',
-        },
-        created_at: row.created_at,
-        updated_at: row.updated_at,
-    }
+          }).catch(error => {
+            console.error(`Error automatically assigning delivery for order #${orderId}:`, error);
+          });
+        });
+      }
+      
+      // Get complete order details
+      const fullOrderDetails = await ordersRepository.findOrderById(orderId);
+      return mapOrderRowToDetails(fullOrderDetails);
+    },
+  };
 }

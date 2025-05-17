@@ -24,12 +24,16 @@ export type PartnerApiErrors =
   | 'CatalogItemNotFound'
   | 'PriceNotFound';
 
+  export type OrderApiErrors =
+  | 'OrderNotFound'
+
 export type ErrorCode =
   | 'UnknownError'
   | AuthenticationErrors
   | UserApiErrors
   | SignInMethodApiErrors
   | CatalogApiErrors
+  | OrderApiErrors
   | PartnerApiErrors;
 
 export type ErrorStatus = 400 | 401 | 403 | 404 | 409 | 500;

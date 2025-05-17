@@ -33,9 +33,9 @@ export function createSignInMethodService(authenticationTokenService: Authentica
                 throw new UserNotFoundError('User not found');
             }
 
-            if (user.email) {
-                throw new UserAlreadyHasSignInMethodError();
-            }
+            // if (user.email) {
+            //     throw new UserAlreadyHasSignInMethodError();
+            // }
 
             await signInMethodRepository.insertPasswordSignInMethod(trx, {
                 user_id: user.id,

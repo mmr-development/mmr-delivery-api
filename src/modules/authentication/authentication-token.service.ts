@@ -40,7 +40,6 @@ interface RefreshTokenPayload {
     sub: string;
     jti: string;
     is_refresh_token: true;
-    role: string;
 }
 
 export function createAuthenticationTokenService(repository: RefreshTokenRepository): AuthenticationTokenService {
@@ -59,16 +58,34 @@ export function createAuthenticationTokenService(repository: RefreshTokenReposit
     }
 
     return {
-        async createRefreshToken(userId: string, role: string): Promise<RefreshToken> {
+        async createRefreshToken(userId: string, role: string | string[]): Promise<RefreshToken> {
             const { refresh_token_id } = await repository.insertRefreshToken(userId);
 
-            return this.signRefreshToken({
+            // Create the base payload
+            const tokenPayload = {
                 sub: userId,
                 jti: refresh_token_id,
                 is_refresh_token: true,
-                role: role,
-            });
+            };
+
+            // Sign the token with roles in claims
+            const options: jwt.SignOptions = {
+                algorithm: config.jwt.algorithm as jwt.Algorithm,
+                expiresIn: config.jwt.accessTokenExpiration,
+            };
+            
+            // Store as a roles array if multiple, or role string if single
+            const rolesClaim = Array.isArray(role) ? { roles: role } : { role };
+            
+            return {
+                refreshToken: jwt.sign(
+                    { ...tokenPayload, ...rolesClaim }, // Include roles in JWT payload
+                    privateKey,
+                    options
+                )
+            };
         },
+        
         signRefreshToken(tokenPayload: RefreshTokenPayload): RefreshToken {
             const options: jwt.SignOptions = {
                 algorithm: config.jwt.algorithm as jwt.Algorithm,
@@ -82,17 +99,30 @@ export function createAuthenticationTokenService(repository: RefreshTokenReposit
                 )
             };
         },
+        
         createAccessToken: async function (refreshToken: string, claims?: Record<string, any>): Promise<AccessToken> {
-            const { sub, jti } = await this.verifyRefreshToken(refreshToken)
+            const payload = await this.verifyRefreshToken(refreshToken);
+            const { sub, jti } = payload;
+            
+            // Get role from JWT claims
+            const decodedToken = this.verifyToken(refreshToken) as jwt.JwtPayload;
+            const roles = decodedToken.roles || [decodedToken.role].filter(Boolean);
 
             await repository.updateRefreshToken(jti, {
                 last_refreshed_at: new Date(),
-            })
+            });
 
-            return this.signAccessToken({ sub, refresh_token_id: jti, jti, }, claims)
+            // Merge the role with any existing claims
+            const updatedClaims = { 
+                ...claims,
+                role: roles
+            };
+
+            return this.signAccessToken({ sub, refresh_token_id: jti, jti }, updatedClaims);
         },
+        
         verifyRefreshToken: async function (token: string): Promise<RefreshTokenPayload> {
-            const payload = this.verifyToken(token)
+            const payload = this.verifyToken(token);
 
             if (
                 !payload ||
@@ -101,7 +131,7 @@ export function createAuthenticationTokenService(repository: RefreshTokenReposit
                 typeof payload.jti !== 'string' ||
                 payload.is_refresh_token !== true
             ) {
-                throw new InvalidAccessTokenError()
+                throw new InvalidAccessTokenError();
             }
 
             const refreshTokenExists = await repository.refreshTokenExists(payload.jti);
@@ -112,10 +142,10 @@ export function createAuthenticationTokenService(repository: RefreshTokenReposit
             return {
                 sub: payload.sub,
                 jti: payload.jti,
-                is_refresh_token: true,
-                role: payload.role,
-            }
+                is_refresh_token: true
+            };
         },
+        
         verifyToken(token: string): string | jwt.JwtPayload {
             try {
                 return jwt.verify(token, publicKey, { algorithms: [config.jwt.algorithm as jwt.Algorithm] })
@@ -130,7 +160,7 @@ export function createAuthenticationTokenService(repository: RefreshTokenReposit
             const jti = crypto.randomUUID();
             const options: jwt.SignOptions = {
                 algorithm: config.jwt.algorithm as jwt.Algorithm,
-                expiresIn: '5s',
+                expiresIn: config.jwt.accessTokenExpiration,
             };
 
             return {
@@ -151,12 +181,29 @@ export function createAuthenticationTokenService(repository: RefreshTokenReposit
             await repository.deleteRefreshToken(payload.jti);
         },
         rotateTokens: async function (refreshToken: string, claims?: Record<string, any>): Promise<{ accessToken: AccessToken, refreshToken: RefreshToken }> {
-            const { sub, jti, role } = await this.verifyRefreshToken(refreshToken);
+            // Get the base payload
+            const payload = await this.verifyRefreshToken(refreshToken);
+            const { sub, jti } = payload;
+            
+            // Get role from JWT claims
+            const decodedToken = this.verifyToken(refreshToken) as jwt.JwtPayload;
+            const roles = decodedToken.roles || [decodedToken.role].filter(Boolean);
 
-            const newRefreshToken = await this.createRefreshToken(sub, role);
+            const newRefreshToken = await this.createRefreshToken(sub, roles);
 
             const { jti: newRefreshTokenId } = await this.verifyRefreshToken(newRefreshToken.refreshToken);
-            const accessToken = this.signAccessToken({ sub, refresh_token_id: newRefreshTokenId, jti: crypto.randomUUID() }, claims);
+            
+            // Merge the role with any existing claims
+            const updatedClaims = {
+                ...claims,
+                role: roles
+            };
+            
+            const accessToken = this.signAccessToken({ 
+                sub, 
+                refresh_token_id: newRefreshTokenId, 
+                jti: crypto.randomUUID() 
+            }, updatedClaims);
 
             await repository.deleteRefreshToken(jti);
 
@@ -165,5 +212,5 @@ export function createAuthenticationTokenService(repository: RefreshTokenReposit
                 refreshToken: newRefreshToken
             };
         },
-    }
+    };
 }

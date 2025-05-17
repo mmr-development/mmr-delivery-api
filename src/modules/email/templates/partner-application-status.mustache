@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Partner Application Status Update</title>
+</head>
+<body style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 0; background-color: #f9f9f9;">
+  <div style="background-color: #ffffff; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); margin: 20px; overflow: hidden;">
+    <!-- Header -->
+    <div style="background-color: #27ae60; padding: 20px; text-align: center;">
+      <h1 style="color: #ffffff; margin: 0; font-weight: 300; font-size: 24px;">{{appName}} Partner</h1>
+    </div>
+    
+    <!-- Content -->
+    <div style="padding: 30px;">
+      {{#status.received}}
+      <!-- APPLICATION RECEIVED CONTENT -->
+      <h2 style="color: #2c3e50; font-weight: 500; margin-top: 0;">Application Received - {{partnerName}}</h2>
+      
+      <p style="color: #555; font-size: 16px;">Hello {{contactName}},</p>
+      
+      <p style="color: #555; font-size: 16px;">Thank you for submitting your application to become a partner with {{appName}}!</p>
+      
+      <p style="color: #555; font-size: 16px;">Your application <strong>ID #{{applicationId}}</strong> has been received and will be reviewed by our team shortly.</p>
+      
+      <div style="background-color: #f8f9fa; border-left: 4px solid #27ae60; padding: 15px; margin: 20px 0;">
+        <p style="color: #555; font-size: 16px; margin: 0;">What to expect next:</p>
+        <ul style="color: #555; font-size: 15px; padding-left: 20px;">
+          <li>Our team will review your application within 2-3 business days</li>
+          <li>You may be contacted for additional information</li>
+          <li>You'll receive an email notification when your application is approved or if we need more details</li>
+        </ul>
+      </div>
+      {{/status.received}}
+      
+      {{#status.approved}}
+      <!-- APPROVAL CONTENT -->
+      <h2 style="color: #2c3e50; font-weight: 500; margin-top: 0;">Congratulations, {{partnerName}}!</h2>
+      
+      <p style="color: #555; font-size: 16px;">Hello {{contactName}},</p>
+      
+      <p style="color: #555; font-size: 16px;">We're excited to inform you that your partner application has been <strong style="color: #27ae60;">approved</strong>!</p>
+      
+      <p style="color: #555; font-size: 16px;">To get started and access your partner dashboard, you'll need to complete your account setup:</p>
+      
+      <!-- Button -->
+      <div style="text-align: center; margin: 30px 0;">
+        <a href="{{setupUrl}}" style="display: inline-block; padding: 14px 30px; background-color: #27ae60; color: white; text-decoration: none; border-radius: 50px; font-weight: 500; font-size: 16px; box-shadow: 0 3px 6px rgba(0,0,0,0.1); transition: all 0.3s ease;">Complete Account Setup</a>
+      </div>
+      
+      <p style="color: #555; font-size: 14px;">Or copy and paste this link into your browser:</p>
+      <p style="background-color: #f5f5f5; padding: 10px; border-radius: 4px; font-size: 13px; word-break: break-all; border: 1px solid #e0e0e0;">{{setupUrl}}</p>
+      
+      <div style="background-color: #f8f9fa; border-left: 4px solid #27ae60; padding: 15px; margin: 20px 0;">
+        <p style="color: #555; font-size: 16px; margin: 0;">What's next?</p>
+        <ul style="color: #555; font-size: 15px; padding-left: 20px;">
+          <li>Set up your password</li>
+          <li>Complete your business profile</li>
+          <li>Add your menu items</li>
+          <li>Set your operating hours</li>
+        </ul>
+      </div>
+      
+      <p style="color: #555; font-size: 14px; font-weight: 500;">This setup link will expire in 24 hours for security reasons.</p>
+      {{/status.approved}}
+      
+      {{#status.rejected}}
+      <!-- REJECTION CONTENT -->
+      <h2 style="color: #2c3e50; font-weight: 500; margin-top: 0;">Application Update for {{partnerName}}</h2>
+      
+      <p style="color: #555; font-size: 16px;">Hello {{contactName}},</p>
+      
+      <p style="color: #555; font-size: 16px;">Thank you for your interest in becoming a partner with {{appName}}. After careful review of your application, we regret to inform you that we are unable to approve your partnership request at this time.</p>
+      
+      {{#rejectionReason}}
+      <div style="background-color: #f8f9fa; border-left: 4px solid #27ae60; padding: 15px; margin: 20px 0;">
+        <p style="color: #555; font-size: 15px; margin: 0;">Feedback on your application:</p>
+        <p style="color: #555; font-size: 15px; margin-top: 10px;">{{rejectionReason}}</p>
+      </div>
+      {{/rejectionReason}}
+      
+      <p style="color: #555; font-size: 16px;">We encourage you to consider the following options:</p>
+      
+      <div style="background-color: #f8f9fa; border-left: 4px solid #27ae60; padding: 15px; margin: 20px 0;">
+        <ul style="color: #555; font-size: 15px; padding-left: 20px;">
+          <li>Review our partnership requirements</li>
+          <li>Update your business information</li>
+          <li>Submit a new application in 30 days</li>
+        </ul>
+      </div>
+      
+      <!-- Button -->
+      <div style="text-align: center; margin: 30px 0;">
+        <a href="{{partnerRequirementsUrl}}" style="display: inline-block; padding: 14px 30px; background-color: #27ae60; color: white; text-decoration: none; border-radius: 50px; font-weight: 500; font-size: 16px; box-shadow: 0 3px 6px rgba(0,0,0,0.1); transition: all 0.3s ease;">View Partnership Requirements</a>
+      </div>
+      {{/status.rejected}}
+      
+      <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #e0e0e0;">
+        <p style="color: #777; font-size: 14px;">If you need any assistance, please contact our partner support team at <a href="mailto:{{supportEmail}}" style="color: #27ae60; text-decoration: none;">{{supportEmail}}</a></p>
+      </div>
+    </div>
+    
+    <!-- Footer -->
+    <div style="background-color: #f5f5f5; padding: 20px; text-align: center; color: #999; font-size: 13px;">
+      <p style="margin: 0;">&copy; {{appName}} - 
+        {{#status.approved}}Growing Your Business Together{{/status.approved}}
+        {{#status.rejected}}Thank you for your interest{{/status.rejected}}
+        {{#status.received}}We're reviewing your application{{/status.received}}
+      </p>
+    </div>
+  </div>
+</body>
+</html>

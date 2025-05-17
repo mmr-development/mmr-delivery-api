@@ -1,7 +1,7 @@
 import { FastifyPluginAsync } from 'fastify';
 import { CatalogService } from './catalog.service';
 import { CreateCatalogRequest, createCatalogSchema, getFullCatalogSchema, deleteCatalogByCatalogIdSchema, updateCatalogSchema, UpdateCatalogRequest } from './catalog.schema';
-import { CreateCategoryRequest, createCategorySchema, deleteCategorySchema, getCategoriesSchema, getCategorySchema, UpdateCategoryRequest, updateCategorySchema } from './catalog-category.schema';
+import { BulkCategoriesRequest, bulkCreateCategoriesSchema, CreateCategoryRequest, createCategorySchema, deleteCategorySchema, getCategoriesSchema, getCategorySchema, UpdateCategoryRequest, updateCategorySchema } from './catalog-category.schema';
 import { CreateCatalogItemRequest } from './catalog-item';
 import { createItemSchema, deleteItemSchema, getItemSchema, getItemsSchema, updateItemSchema } from './catalog-item.schema';
 
@@ -42,12 +42,24 @@ export const catalogController: FastifyPluginAsync<CatalogControllerOptions> = a
             return reply.code(204).send();
         });
 
+    server.post<{ Body: BulkCategoriesRequest, Params: { catalog_id: number } }>(
+        '/catalog/:catalog_id/bulk-categories/',
+        { schema: { ...bulkCreateCategoriesSchema, tags: ['Partner Catalogs'] } },
+        async (request, reply) => {
+            const result = await catalogService.bulkCreateCategoriesWithItems(
+                request.params.catalog_id,
+                request.body.categories
+            );
+            return reply.code(201).send(result);
+        }
+    );
+
     server.post<{ Body: CreateCategoryRequest, Params: { catalog_id: number } }>('/catalog/:catalog_id/categories/', { schema: { ...createCategorySchema } }, async (request, reply) => {
         const category = await catalogService.createCatalogCategory(request.params.catalog_id, request.body);
         return reply.code(201).send(category);
     });
 
-    server.post<{ Params: { catalog_id: number }}>('/catalog/:catalog_id/upload-menu-image/', { 
+    server.post<{ Params: { catalog_id: number } }>('/catalog/:catalog_id/upload-menu-image/', {
         schema: {
             summary: 'Upload a menu image for the catalog',
             tags: ['Partner Catalogs'],
@@ -77,26 +89,26 @@ export const catalogController: FastifyPluginAsync<CatalogControllerOptions> = a
     }, async (request, reply) => {
         try {
             const data = await request.file();
-            
+
             if (!data) {
                 return reply.code(400).send({ message: 'No file uploaded' });
             }
-            
+
             // Check file type
             const allowedMimeTypes = ['image/jpeg', 'image/png', 'image/jpg'];
             if (!allowedMimeTypes.includes(data.mimetype)) {
-                return reply.code(400).send({ 
-                    message: 'Invalid file type. Only JPG, JPEG, and PNG are allowed.' 
+                return reply.code(400).send({
+                    message: 'Invalid file type. Only JPG, JPEG, and PNG are allowed.'
                 });
             }
-            
+
             // Process the file using your service
             const imageUrl = await catalogService.uploadMenuImage(
-                request.params.catalog_id, 
+                request.params.catalog_id,
                 data.filename,
                 await data.toBuffer()
             );
-            
+
             return reply.code(201).send({ imageUrl });
         } catch (error) {
             request.log.error(error);
@@ -135,6 +147,54 @@ export const catalogController: FastifyPluginAsync<CatalogControllerOptions> = a
     server.get<{ Params: { item_id: number } }>('/categories/items/:item_id/', { schema: { ...getItemSchema } }, async (request, reply) => {
         const item = await catalogService.findCatalogItemById(request.params.item_id);
         return reply.code(200).send(item);
+    });
+
+    server.post<{ Params: { item_id: number } }>('/categories/items/:item_id/upload-image/', {
+        schema: {
+            tags: ['Partner Catalogs'],
+            summary: 'Upload an image for a catalog item',
+            consumes: ['multipart/form-data'],
+            response: {
+                201: {
+                    type: 'object',
+                    properties: {
+                        imageUrl: { type: 'string' }
+                    }
+                }
+            }
+        }
+    }, async (request, reply) => {
+        try {
+            const data = await request.file();
+
+            if (!data) {
+                return reply.code(400).send({ message: 'No file uploaded' });
+            }
+
+            // Check file type
+            const allowedMimeTypes = ['image/jpeg', 'image/png', 'image/jpg'];
+            if (!allowedMimeTypes.includes(data.mimetype)) {
+                return reply.code(400).send({
+                    message: 'Invalid file type. Only JPG, JPEG, and PNG are allowed.'
+                });
+            }
+
+            // Process the file using your service
+            const imageUrl = await catalogService.uploadCatalogItemImage(
+                request.params.item_id,
+                data.filename,
+                await data.toBuffer()
+            );
+
+            // Return JSON object with imageUrl property
+            return reply.code(201).send({ imageUrl });
+        } catch (error) {
+            // Add proper error handling
+            request.log.error(error);
+            return reply.code(500).send({
+                message: error instanceof Error ? error.message : 'Failed to upload image'
+            });
+        }
     });
 
     // patch to update category item

@@ -1,34 +1,32 @@
 import { FastifyPluginAsync } from 'fastify';
 import { UserService } from './user.service';
 import { getAllUsersSchema, getUserByIdSchema } from './user.schema';
+import { TypeBoxTypeProvider } from '@fastify/type-provider-typebox';
 
 export interface UserControllerOptions {
     userService: UserService;
 }
 
 export const userController: FastifyPluginAsync<UserControllerOptions> = async function (server, { userService }) {
-    server.get<{ Querystring: { offset: number, limit: number, email?: string, name?: string, phone_number?: string } }>('/users/', { schema: { ...getAllUsersSchema }, preHandler: [server.authenticate, server.guard.role('admin')] }, async (request, reply) => {
-        const { offset, limit, email, name, phone_number } = request.query;
-        const { users, count } = await userService.findAllUsers({
-            offset, limit,
-            filters: {
-                email,
-                name,
-                phone_number
-            }
-        });
+    server.withTypeProvider<TypeBoxTypeProvider>().get('/users/', { schema: { ...getAllUsersSchema }, preHandler: [server.authenticate, server.guard.role('admin')] }, async (request, reply) => {
+        const query = request.query;
+        try {
+            const { users, count } = await userService.findAllUsers(query);
 
-        return reply.code(200).send({
-            users,
-            pagination: {
-                total: count,
-                offset,
-                limit
-            }
-        });
+            return reply.code(200).send({
+                users,
+                pagination: {
+                    total: count,
+                    offset: query.offset,
+                    limit: query.limit,
+                }
+            });
+        } catch (error) {
+
+        }
     });
 
-    server.get<{ Params: { user_id: string } }>('/users/:user_id/', { schema: { ...getUserByIdSchema }, preHandler: [server.authenticate, server.guard.role('admin')] }, async (request, reply) => {
+    server.withTypeProvider<TypeBoxTypeProvider>().get<{ Params: { user_id: string } }>('/users/:user_id/', { schema: { ...getUserByIdSchema }, preHandler: [server.authenticate, server.guard.role('admin')] }, async (request, reply) => {
         const user = await userService.findUserById(request.params.user_id);
 
         if (!user) {
@@ -38,9 +36,9 @@ export const userController: FastifyPluginAsync<UserControllerOptions> = async f
         return reply.code(200).send(user);
     });
 
-    server.get<{ Querystring: { q: string } }>('/address-autocomplete', { schema: { tags: ['Dawa']}}, async (request, reply) => {
+    server.withTypeProvider<TypeBoxTypeProvider>().get<{ Querystring: { q: string } }>('/address-autocomplete', { schema: { tags: ['Dawa'] } }, async (request, reply) => {
         const { query } = request;
-        const { q } = query as { q?: string;};
+        const { q } = query as { q?: string; };
         console.log('Query:', query);
         const response = await fetch(`https://api.dataforsyningen.dk/autocomplete?q=${q}`);
         console.log('Response:', response);
@@ -50,4 +48,34 @@ export const userController: FastifyPluginAsync<UserControllerOptions> = async f
         const data = await response.json();
         return reply.code(200).send(data);
     })
+
+     server.withTypeProvider<TypeBoxTypeProvider>().get('/users/profile/', { 
+        schema: { 
+            tags: ['Users'],}, 
+        preHandler: [server.authenticate]
+    }, async (request, reply) => {
+        try {
+            // Get the authenticated user's ID from the request
+            const userId = request.user.sub;
+            
+            // Fetch the user profile using the UserService
+            const user = await userService.findUserById(userId);
+            
+            if (!user) {
+                return reply.code(404).send({ 
+                    message: 'User profile not found',
+                    statusCode: 404
+                });
+            }
+            
+            // Return the user profile
+            return reply.code(200).send(user);
+        } catch (error) {
+            request.log.error(error);
+            return reply.code(500).send({ 
+                message: 'Failed to fetch user profile',
+                statusCode: 500
+            });
+        }
+    });
 }

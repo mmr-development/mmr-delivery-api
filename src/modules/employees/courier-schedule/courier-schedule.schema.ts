@@ -104,3 +104,34 @@ export type UpdateCourierSchedule = Static<typeof UpdateCourierScheduleSchema>;
 export type TimeEntry = Static<typeof TimeEntrySchema>;
 export type ClockIn = Static<typeof ClockInSchema>;
 export type ClockOut = Static<typeof ClockOutSchema>;
+
+export const updateScheduleSchema: FastifySchema = {
+    params: Type.Object({
+        id: Type.Number({
+            description: 'The ID of the schedule to update'
+        })
+    }),
+    body: UpdateCourierScheduleSchema,
+    response: {
+        200: CourierScheduleSchema
+    },
+    tags: ['Courier Scheduling'],
+    description: 'Update an existing courier schedule',
+    summary: 'Update schedule'
+};
+
+// And also add the schema for getting a single schedule by ID
+export const getScheduleByIdSchema: FastifySchema = {
+    params: Type.Object({
+        id: Type.Number({
+            description: 'The ID of the schedule to retrieve'
+        })
+    }),
+    response: {
+        200: CourierScheduleSchema
+    },
+    tags: ['Courier Scheduling'],
+    description: 'Get a courier schedule by its ID',
+    summary: 'Get schedule by ID'
+};
+

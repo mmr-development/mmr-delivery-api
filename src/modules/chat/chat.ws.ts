@@ -14,25 +14,39 @@ interface OutgoingMessage {
   [key: string]: any;
 }
 
-const connections = new Map<number, Set<WebSocket>>();
+const connections = new Map<number, Set<{ socket: WebSocket, userId: string }>>();
 
-function addConnection(chatId: number, socket: WebSocket) {
+function addConnection(chatId: number, socket: WebSocket, userId: string) {
   if (!connections.has(chatId)) connections.set(chatId, new Set());
-  connections.get(chatId)!.add(socket);
+  connections.get(chatId)!.add({ socket, userId });
 }
 
 function removeConnection(chatId: number, socket: WebSocket) {
   if (connections.has(chatId)) {
-    connections.get(chatId)!.delete(socket);
-    if (connections.get(chatId)!.size === 0) connections.delete(chatId);
+    const clients = connections.get(chatId)!;
+    for (const client of clients) {
+      if (client.socket === socket) {
+        clients.delete(client);
+        break;
+      }
+    }
+    if (clients.size === 0) connections.delete(chatId);
   }
 }
 
 function broadcast(chatId: number, message: OutgoingMessage) {
-  const payload = JSON.stringify(message);
   connections.get(chatId)?.forEach(client => {
-    if (client.readyState === WebSocket.OPEN) {
-      client.send(payload);
+    if (client.socket.readyState === WebSocket.OPEN) {
+      // Add isSender flag if the message contains a userId
+      if (message.type === 'message' && message.message?.user_id) {
+        const customMessage = {
+          ...message,
+          isSender: message.message.user_id === client.userId
+        };
+        client.socket.send(JSON.stringify(customMessage));
+      } else {
+        client.socket.send(JSON.stringify(message));
+      }
     }
   });
 }
@@ -57,18 +71,25 @@ function isValidMessageContent(content: any): content is MessageContent {
 }
 
 export const chatWsPlugin: (service: ChatService) => FastifyPluginAsync = (service) => async (fastify) => {
-  await fastify.register(fastifyWebsocket);
-
-  fastify.get<{ Params: { chat_id: number }}>('/ws/chat/:chat_id', { websocket: true, preHandler: [fastify.authenticate] }, (connection, req) => {
+  fastify.get<{ Params: { chat_id: number } }>('/ws/chat/:chat_id', { websocket: true, preHandler: [fastify.authenticate] }, (connection, req) => {
     const socket = connection;
     const chatId = Number(req.params.chat_id);
     const userId = req.user.sub;
 
-    addConnection(chatId, socket);
+    addConnection(chatId, socket, userId);
 
     // Send chat history
     service.getMessages(chatId)
-      .then(history => socket.send(JSON.stringify({ type: 'history', messages: history })))
+      .then(history => {
+        const historyWithSenderFlag = {
+          type: 'history',
+          messages: history.map(msg => ({
+            ...msg,
+            isSender: msg.sender_id === userId
+          }))
+        };
+        socket.send(JSON.stringify(historyWithSenderFlag));
+      })
       .catch(() => socket.send(JSON.stringify({ type: 'error', error: 'Failed to load chat history' })));
 
     socket.on('message', async (raw) => {
@@ -105,4 +126,4 @@ export const chatWsPlugin: (service: ChatService) => FastifyPluginAsync = (servi
 
     socket.on('close', () => removeConnection(chatId, socket));
   });
-};
+}

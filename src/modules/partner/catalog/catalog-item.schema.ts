@@ -87,7 +87,6 @@ export const UpdateItemSchema = Type.Object({
   image_url: Type.Optional(Type.String({
     description: 'Updated URL to the item\'s image',
     examples: ['https://example.com/images/updated-item.jpg'],
-    format: 'uri'
   })),
 //   is_available: Type.Optional(Type.Boolean())
 }, {

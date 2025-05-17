@@ -5,6 +5,7 @@ import { UserService } from '../users/user.service';
 import { PasswordResetTokenService } from './password-reset.service';
 import { ChangePasswordRequest, changePasswordSchema, forgotPasswordSchema, loginSchema, logoutSchema, refreshTokenSchema, ResetPasswordParams, ResetPasswordRequest, resetPasswordSchema, signupSchema } from './auth.schema';
 import { ControllerError } from '../../utils/errors';
+import * as jwt from 'jsonwebtoken';
 
 export interface AuthenticationControllerOptions {
     signInMethodService: SignInMethodService;
@@ -93,45 +94,59 @@ export const authenticationController: FastifyPluginAsync<AuthenticationControll
         });
     })
 
-    server.post<{ Body: { refresh_token?: string }}>('/auth/refresh-token/', { schema: { ...refreshTokenSchema } }, async (request, reply) => {
+    server.post<{ Body: { refresh_token?: string }}>('/auth/refresh-token/', {  }, async (request, reply) => {
         let refreshToken = request.cookies.refresh_token;
         if (!refreshToken && request.body.refresh_token) {
             refreshToken = request.body.refresh_token;
         }
-    
+
         if (!refreshToken) {
             return reply.status(400).send({ message: "Refresh token is required" });
         }
 
-        const payload = await authenticationTokenService.verifyRefreshToken(refreshToken);
-        const userRole = await userService.getUserRole(payload.sub, payload.role);
-    
-        const { accessToken, refreshToken: newRefreshToken } = await authenticationTokenService.rotateTokens(refreshToken, {
-            role: userRole.role_name,
-        });
+        try {
+            const decodedToken = authenticationTokenService.verifyToken(refreshToken) as jwt.JwtPayload & { role?: string };
+            
+            if (!decodedToken.role) {
+                throw new Error('Role not found in token');
+            }
+            
+            // Pass the role in claims to maintain it during rotation
+            const { accessToken, refreshToken: newRefreshToken } = await authenticationTokenService.rotateTokens(refreshToken, {
+                role: decodedToken.role,
+            });
 
-        reply.setCookie('refresh_token', newRefreshToken.refreshToken, {
-            httpOnly: true,
-            secure: true,
-            sameSite: 'none',
-            path: '/',
-            maxAge: 2592000
-        });
+            // Set cookies for both tokens
+            reply.setCookie('refresh_token', newRefreshToken.refreshToken, {
+                httpOnly: true,
+                secure: true,
+                sameSite: 'none',
+                path: '/',
+                maxAge: 2592000  // 30 days
+            });
 
-        // Set HTTP-only cookie for new access token
-
-        reply.setCookie('access_token', accessToken.accessToken, {
-            httpOnly: true,
-            secure: true,
-            sameSite: 'none',
-            path: '/',
-            maxAge: 3600
-        });
-    
-        reply.status(200).send({
-            access_token: accessToken.accessToken,
-            refresh_token: newRefreshToken.refreshToken
-        });
+            reply.setCookie('access_token', accessToken.accessToken, {
+                httpOnly: true,
+                secure: true,
+                sameSite: 'none',
+                path: '/',
+                maxAge: 3600  // 1 hour
+            });
+        
+            // Return tokens in response body too
+            reply.status(200).send({
+                access_token: accessToken.accessToken,
+                refresh_token: newRefreshToken.refreshToken
+            });
+        } catch (error) {
+            // Handle token validation errors
+            reply.clearCookie('access_token', { path: '/' });
+            reply.clearCookie('refresh_token', { path: '/' });
+            
+            return reply.status(401).send({ 
+                message: "Invalid or expired refresh token"
+            });
+        }
     });
 
     server.post<{ Body: { email: string } }>('/auth/forgot-password/', { schema: { ...forgotPasswordSchema } }, async (request, reply) => {

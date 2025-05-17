@@ -1,8 +1,5 @@
 import { FastifyPluginAsync } from 'fastify';
-import { DeletePartnerApplicationParams, deletePartnerApplicationSchema, getPartnerApplicationByIdSchema, getPartnerApplicationsSchema, PartnerApplicationResponseSchema, partnerApplicationSchema, PartnerApplicationUpdate, PartnerFilter, PartnerFilterSchema, updatePartnerApplicationSchema } from './partner.schema';
-import { PartnerApplicationService } from './partner-application.service';
-import { Partner } from './partner';
-import { PartnerApplicationRequest } from './partner.schema';
+import { PartnerFilter, PartnerFilterSchema } from './partner.schema';
 import {
     DeliveryMethodService, CreateDeliveryMethodRequest, createDeliveryMethodSchema,
     getDeliveryMethodsSchema,
@@ -17,100 +14,18 @@ import {
     updateBusinessTypeSchema,
     deleteBusinessTypeSchema
 } from './business-type';
-import { ControllerError } from '../../utils/errors';
-// import { createCatalogSchema, CatalogService, createCatalogCategorySchema, createCatalogItemSchema, getCatalogSchema, GetCatalogsQuerySchema, UpdateCatalogCategoryRequest, updateCatalogCategorySchema, deleteSchemaCatalog } from './catalog';
-// import { CreateCatalogCategoryRequest } from './catalog/catelog-category';
-import { CatalogService } from './catalog';
-import { CreateCatalogItemRequest } from './catalog/catalog-item';
-import { EmailAlreadyExistsError } from '../users';
 import { PartnerService } from './partner.service';
 import { PartnerHourService } from './partner-hour/partner-hour.service';
 import { CreatePartnerHourRequest, createPartnerHourSchema, deletePartnerHourSchema, getPartnerHourByIdSchema, getPartnerHoursSchema, UpdatePartnerHourRequest, updatePartnerHourSchema } from './partner-hour/partner-hour.schema';
 
 export interface PartnerControllerOptions {
-    partnerApplicationService: PartnerApplicationService;
     deliveryMethodService: DeliveryMethodService;
     businessTypeService: BusinessTypeService;
     partnerService: PartnerService;
     partnerHourService: PartnerHourService;
 }
 
-export const partnerController: FastifyPluginAsync<PartnerControllerOptions> = async function (server, { partnerApplicationService, deliveryMethodService, businessTypeService, partnerService, partnerHourService }) {
-    server.post<{ Body: PartnerApplicationRequest }>('/partner-applications/', { schema: { ...partnerApplicationSchema } }, async (request, reply) => {
-        try {
-            console.log('Submitting partner application:', request.body);
-            await partnerApplicationService.submitApplication(request.body);
-            return reply.code(201).send({
-                message: 'Partner application submitted successfully',
-                status: 201
-            })
-        } catch (error) {
-            if (error instanceof EmailAlreadyExistsError) {
-                throw new ControllerError(409, 'EmailAlreadyExists', error.message);
-            }
-        }
-    });
-
-    server.get<{
-        Querystring: { offset?: number; limit?: number; status?: string; name?: string; user_email?: string }
-    }>(
-        '/partner-applications/',
-        {
-            schema: { ...getPartnerApplicationsSchema, tags: ['Partner Applications'] },
-            preHandler: [server.authenticate, server.guard.role('admin')]
-        },
-        async (request, reply) => {
-            const { offset, limit, status } = request.query;
-            const { applications, count } = await partnerApplicationService.getAllPartnerApplications({
-                offset,
-                limit,
-                filters: { status }
-            });
-    
-            return reply.code(200).send({
-                applications,
-                pagination: {
-                    total: count,
-                    offset,
-                    limit
-                }
-            });
-        }
-    );
-
-    server.get<{ Params: { id: number } }>('/partner-applications/:id/', { schema: { ...getPartnerApplicationByIdSchema }, preHandler: [server.authenticate, server.guard.role('admin')] }, async (request, reply) => {
-        const partnerApplication = await partnerApplicationService.getPartnerApplicationById(request.params.id);
-
-        if (!partnerApplication) {
-            throw new ControllerError(
-                404,
-                'UserNotFound',
-                `Partner application with id ${request.params.id} was not found`
-            )
-        }
-
-        return reply.code(200).send(partnerApplication);
-    });
-
-    server.patch<{ Querystring: { id: string }, Params: { id: number }, Body: PartnerApplicationUpdate }>('/partner-applications/:id/', { schema: { ...updatePartnerApplicationSchema }, preHandler: [server.authenticate, server.guard.role('admin')] }, async (request, reply) => {
-        const partnerApplication = await partnerApplicationService.updateApplication(request.params.id, request.body);
-
-        if (!partnerApplication) {
-            throw new ControllerError(
-                404,
-                'UserNotFound',
-                `Partner application with id ${request.query.id} was not found`
-            )
-        }
-
-        return reply.code(200).send(partnerApplication);
-    });
-
-    server.delete<{ Params: DeletePartnerApplicationParams }>('/partner-applications/:id/', { schema: { ...deletePartnerApplicationSchema }, preHandler: [server.authenticate, server.guard.role('admin')] }, async (request, reply) => {
-        const partnerApplication = await partnerApplicationService.deleteApplication(request.params.id);
-        return reply.code(204).send(partnerApplication);
-    });
-
+export const partnerController: FastifyPluginAsync<PartnerControllerOptions> = async function (server, { deliveryMethodService, businessTypeService, partnerService, partnerHourService }) {
     server.post<{ Body: CreateDeliveryMethodRequest }>('/partners/delivery-methods/', { schema: { ...createDeliveryMethodSchema, tags: ['Partner Delivery Methods'] }, preHandler: [server.authenticate, server.guard.role('admin')] }, async (request, reply) => {
         const deliveryMethod = await deliveryMethodService.createDeliveryMethod(request.body);
         return reply.code(201).send(deliveryMethod);
@@ -190,6 +105,13 @@ export const partnerController: FastifyPluginAsync<PartnerControllerOptions> = a
     server.get('/partners/me/', { schema: { tags: ['Partners']}, preHandler: [server.authenticate] }, async (request, reply) => {
         const userId = request.user.sub;
         const partner = await partnerService.findPartnerByUserId(userId);
+        return reply.code(200).send(partner);
+    })
+
+    
+    server.get<{ Params: { id: number }}>('/partners/:id/', { schema: { tags: ['Partners']} }, async (request, reply) => {
+        const id = request.params.id;
+        const partner = await partnerService.findPartnerById(id);
         return reply.code(200).send(partner);
     })
 

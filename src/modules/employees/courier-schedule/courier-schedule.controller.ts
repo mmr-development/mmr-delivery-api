@@ -1,6 +1,6 @@
 import { FastifyPluginAsync } from 'fastify';
 import { CourierScheduleService } from './courier-schedule.service';
-import { ClockIn, ClockOut, CreateCourierSchedule, UpdateCourierSchedule, createScheduleSchema, getSchedulesSchema } from './courier-schedule.schema';
+import { ClockIn, ClockOut, CreateCourierSchedule, UpdateCourierSchedule, createScheduleSchema, getSchedulesSchema, updateScheduleSchema } from './courier-schedule.schema';
 
 export interface CourierScheduleControllerOptions {
     courierScheduleService: CourierScheduleService;
@@ -69,7 +69,7 @@ export const courierScheduleController: FastifyPluginAsync<CourierScheduleContro
         '/couriers/schedules/:id/',
         { 
             schema: {
-                // Define schema here
+updateScheduleSchema
             },
             preHandler: [server.authenticate, server.guard.role('admin')]
         },

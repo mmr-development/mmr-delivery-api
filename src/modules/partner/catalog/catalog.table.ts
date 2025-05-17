@@ -15,7 +15,7 @@ export interface CatalogItemWithDetails {
     description: string;
     price: string | number;
     catalog_category_id: number;
-    // image_url: string | null;
+    image_url: string | null;
     created_at: Date;
     updated_at: Date;
 }
