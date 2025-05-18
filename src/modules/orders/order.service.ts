@@ -130,26 +130,57 @@ export function createOrderService(
         orderData.status ? broadcastOrderStatusUpdate(orderId, orderData.status) : Promise.resolve()
       ]);
       
-      // Check if status changed to ready and if it's a delivery-type order
-      if (orderData.status === 'ready' && 
-          previousStatus !== 'ready' && 
-          deliveryService && 
-          updatedOrder.delivery_type === 'delivery') {
-        console.log(`Order #${orderId} is now ready for delivery - triggering automatic assignment`);
-        
-        // Trigger automatic delivery assignment in background
-        Promise.resolve().then(() => {
-          deliveryService.assignDeliveryAutomatically(orderId).then(delivery => {
-            if (delivery) {
-              console.log(`Successfully auto-assigned delivery #${delivery.id} for order #${orderId} to courier ${delivery.courier_id}`);
-            } else {
-              console.log(`No couriers available for auto-assignment of order #${orderId}, will retry later`);
-              // Queue for retry (you could implement a retry mechanism here)
+      // Check status change cases that need special handling
+      if (deliveryService) {
+        // ENHANCED: Better handling of status changes that trigger delivery
+        if ((orderData.status === 'ready' && previousStatus !== 'ready') || 
+            (orderData.status === 'confirmed' && previousStatus !== 'confirmed')) {
+          
+          // Check if this is a delivery-type order
+          if (updatedOrder.delivery_type === 'delivery') {
+            console.log(`Order #${orderId} changed to ${orderData.status} status - triggering IMMEDIATE delivery assignment`);
+            
+            // Try to assign immediately without waiting for the periodic check
+            try {
+              const delivery = await deliveryService.assignDeliveryAutomatically(orderId);
+              
+              if (delivery) {
+                console.log(`SUCCESS: Immediately auto-assigned delivery #${delivery.id} for order #${orderId} to courier ${delivery.courier_id}`);
+                // No need for retry since assignment succeeded
+              } else {
+                console.log(`No couriers immediately available for order #${orderId}, scheduling quick retries...`);
+                
+                // First retry after just 2 seconds
+                setTimeout(async () => {
+                  try {
+                    console.log(`First retry for order #${orderId} delivery assignment...`);
+                    const retryDelivery = await deliveryService.assignDeliveryAutomatically(orderId);
+                    
+                    if (retryDelivery) {
+                      console.log(`First retry successful: assigned delivery #${retryDelivery.id} to courier ${retryDelivery.courier_id}`);
+                    } else {
+                      // Second retry after another 5 seconds
+                      setTimeout(async () => {
+                        console.log(`Second retry for order #${orderId} delivery assignment...`);
+                        const secondRetryDelivery = await deliveryService.assignDeliveryAutomatically(orderId);
+                        
+                        if (secondRetryDelivery) {
+                          console.log(`Second retry successful for order #${orderId}`);
+                        } else {
+                          console.log(`Still no couriers available for order #${orderId}, will rely on periodic checks`);
+                        }
+                      }, 5000);
+                    }
+                  } catch (error) {
+                    console.error(`Error in retry assignment for order #${orderId}:`, error);
+                  }
+                }, 2000); // First retry after just 2 seconds
+              }
+            } catch (error) {
+              console.error(`Error automatically assigning delivery for order #${orderId}:`, error);
             }
-          }).catch(error => {
-            console.error(`Error automatically assigning delivery for order #${orderId}:`, error);
-          });
-        });
+          }
+        }
       }
       
       // Get complete order details

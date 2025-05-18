@@ -30,6 +30,8 @@ export interface OrdersRepository {
     getMostPurchasedItems(limit: number): Promise<OrderItemRow[]>;
     countOrders(query?: GetOrdersQuery): Promise<number>;
     findOrdersReadyForDelivery(): Promise<OrderRow[]>;
+    getOrderAddressDetails(orderId: number): Promise<any>;
+    getPartnerById(partnerId: number): Promise<any>;
 }
 
 export const createOrdersRepository = (db: Kysely<Database>): OrdersRepository => {
@@ -354,15 +356,67 @@ export const createOrdersRepository = (db: Kysely<Database>): OrdersRepository =
         },
         
         async findOrdersReadyForDelivery(): Promise<OrderRow[]> {
-            // Find orders that are ready for pickup but don't have a delivery record yet
+            // Find orders that are ready but don't have a delivery record yet
             return await db
                 .selectFrom('order as o')
                 .leftJoin('delivery as d', 'o.id', 'd.order_id')
-                .selectAll('o')  // Changed from .select('o.*') to .selectAll('o')
-                .where('o.status', '=', 'ready_for_pickup')
+                .selectAll('o')
+                .where(qb => qb
+                    .where('o.status', '=', 'ready')
+                    .or('o.status', '=', 'confirmed')
+                )
                 .where('o.delivery_type', '=', 'delivery') // Only orders for delivery
                 .where('d.id', 'is', null) // No delivery record exists yet
                 .execute();
-        }
+        },
+
+        async getOrderAddressDetails(orderId: number): Promise<any> {
+            return await db
+              .selectFrom('order as o')
+              .innerJoin('customer as c', 'o.customer_id', 'c.id')
+              .innerJoin('user as u', 'c.user_id', 'u.id')
+              .innerJoin('address as a', 'c.address_id', 'a.id')
+              .innerJoin('street as s', 'a.street_id', 's.id')
+              .innerJoin('postal_code as pc', 'a.postal_code_id', 'pc.id')
+              .innerJoin('city as ci', 'pc.city_id', 'ci.id')
+              .innerJoin('country as co', 'ci.country_id', 'co.id')
+              .select([
+                'u.first_name',
+                'u.last_name',
+                'u.phone_number',
+                'co.name as country',
+                'ci.name as city',
+                's.name as street',
+                'pc.code as postal_code',
+                'a.address_detail',
+                'a.latitude',
+                'a.longitude'
+              ])
+              .where('o.id', '=', orderId)
+              .executeTakeFirst();
+          },
+        
+          async getPartnerById(partnerId: number): Promise<any> {
+            return await db
+              .selectFrom('partner as p')
+              .innerJoin('address as a', 'p.address_id', 'a.id')
+              .innerJoin('street as s', 'a.street_id', 's.id')
+              .innerJoin('postal_code as pc', 'a.postal_code_id', 'pc.id')
+              .innerJoin('city as ci', 'pc.city_id', 'ci.id')
+              .innerJoin('country as co', 'ci.country_id', 'co.id')
+              .select([
+                'p.id',
+                'p.name',
+                'co.name as country',
+                'ci.name as city',
+                's.name as street',
+                'pc.code as postal_code',
+                'a.address_detail',
+                'a.latitude',
+                'a.longitude'
+              ])
+              .where('p.id', '=', partnerId)
+              .executeTakeFirst();
+          }
     };
 };

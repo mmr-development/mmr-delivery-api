@@ -1,5 +1,8 @@
-export * from './delivery.tables';
-export * from './delivery.repository';
-export * from './delivery.service';
-export * from './delivery.controller';
-export * from './delivery.ws';
+// Export all components from the delivery module
+export { createDeliveryService } from './delivery.service';
+export { deliveryController } from './delivery.controller';
+export { deliveryWebsocketPlugin } from './delivery.ws';
+export { createDeliveryRepository } from './delivery.repository';
+
+// Also export types
+export * from './delivery.types';

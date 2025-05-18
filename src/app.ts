@@ -54,11 +54,17 @@ import fastifyWebsocket from '@fastify/websocket';
 import { recommendationController} from './modules/recommendations/recommendation.controller';
 import { createRecommendationService } from './modules/recommendations/recommendation.service';
 import { 
-    createDeliveryRepository, 
-    createDeliveryService, 
-    deliveryController,
-    deliveryWebsocketPlugin 
+  createDeliveryService, 
+  deliveryController, 
+  deliveryWebsocketPlugin, 
+  createDeliveryRepository
 } from './modules/delivery';
+import { deliveryTaskPlugin } from './modules/delivery/delivery.task';
+import {
+  createTimeEntryRepository,
+  createTimeEntryService,
+  timeEntryController
+} from './modules/time-entry';
 
 
 export interface AppOptions {
@@ -86,12 +92,55 @@ export async function buildApp(fastify: FastifyInstance, opts: AppOptions) {
         prefix: '/public/',
     })
 
+    // Create the pool with monitoring capability
+    const pool = new Pool({
+        ...config.database,
+        max: 20,  // Increase max connections
+        idleTimeoutMillis: 30000  // Close idle connections after 30s
+    });
+    
+    // Add pool monitoring
+    pool.on('connect', () => {
+        console.log(`[DB-POOL] New connection created. Stats - Total: ${pool.totalCount}, Idle: ${pool.idleCount}, Waiting: ${pool.waitingCount}`);
+    });
+    
+    pool.on('remove', () => {
+        console.log(`[DB-POOL] Connection removed. Stats - Total: ${pool.totalCount}, Idle: ${pool.idleCount}, Waiting: ${pool.waitingCount}`);
+    });
+    
+    // Set up interval for logging pool statistics
+    const poolMonitorInterval = setInterval(() => {
+        console.log(`[DB-POOL] Stats - Total: ${pool.totalCount}, Idle: ${pool.idleCount}, Waiting: ${pool.waitingCount}`);
+    }, 30000); // Log every 30 seconds
+    
+    // Clean up on process exit
+    process.on('SIGINT', () => {
+        clearInterval(poolMonitorInterval);
+        console.log('[DB-POOL] Shutting down pool monitor');
+        pool.end();
+    });
+    
+    // Create Kysely instance using our monitored pool
     const db = new Kysely<Database>({
         dialect: new PostgresDialect({
-            pool: async () => new Pool(config.database),
+            pool: async () => pool,
         }),
         log: ['query']
     });
+    
+    // Simple debug endpoint for checking pool status (disable in production)
+    if (process.env.NODE_ENV !== 'production') {
+        fastify.get('/debug/pool-status', (req, reply) => {
+            return {
+                timestamp: new Date().toISOString(),
+                pool: {
+                    totalConnections: pool.totalCount,
+                    idleConnections: pool.idleCount,
+                    waitingClients: pool.waitingCount
+                }
+            };
+        });
+    }
 
     fastify.register(cors, {
         origin: [
@@ -208,8 +257,44 @@ export async function buildApp(fastify: FastifyInstance, opts: AppOptions) {
         service: createJwksService(),
     });
 
+    // Create delivery service and register delivery components
+    const deliveryRepository = createDeliveryRepository(db);
+    const timeEntryRepository = createTimeEntryRepository(db);
+    const ordersRepository = createOrdersRepository(db);
+    const deliveryService = createDeliveryService(deliveryRepository, ordersRepository);
+    const timeEntryService = createTimeEntryService(timeEntryRepository);
+
+    // Register the delivery websocket handler
+    fastify.register(deliveryWebsocketPlugin(deliveryService));
+    
+    // Register the delivery controller (without timeEntryService)
+    fastify.register(deliveryController, {
+        deliveryService,
+        prefix: '/v1',
+    });
+    
+    // Register the time entry controller separately
+    fastify.register(timeEntryController, {
+        timeEntryService,
+        prefix: '/v1',
+    });
+    
+    // Register the delivery task for periodic checking
+    fastify.register(deliveryTaskPlugin(deliveryService));
+
+    // Update order service and controller to include delivery service
     fastify.register(orderController, {
-        orderService: createOrderService(createOrdersRepository(db), createUserService(createUserRepository(db), createUserRoleService(createUserRoleRepository(db))), createAddressService(createAddressRepository(db)), createCustomerService(createCustomerRepository(db)), createPaymentService(createPaymentRepository(db)), createCatalogService(db), createPartnerService(db)),
+        orderService: createOrderService(
+            createOrdersRepository(db), 
+            createUserService(createUserRepository(db), createUserRoleService(createUserRoleRepository(db))), 
+            createAddressService(createAddressRepository(db)), 
+            createCustomerService(createCustomerRepository(db)), 
+            createPaymentService(createPaymentRepository(db)), 
+            createCatalogService(db), 
+            createPartnerService(db),
+            deliveryService // Add deliveryService to orderService
+        ),
+        deliveryService, // Add deliveryService to controller
         prefix: '/v1',
     })
 
@@ -219,32 +304,5 @@ export async function buildApp(fastify: FastifyInstance, opts: AppOptions) {
     })
 
     fastify.register(orderWebsocketPlugin(createOrderService(createOrdersRepository(db), createUserService(createUserRepository(db), createUserRoleService(createUserRoleRepository(db))), createAddressService(createAddressRepository(db)), createCustomerService(createCustomerRepository(db)), createPaymentService(createPaymentRepository(db)), createCatalogService(db), createPartnerService(db))));
-
-    // Register delivery services
-    const deliveryRepository = createDeliveryRepository(db);
-    const orderService = createOrderService(
-        createOrdersRepository(db), 
-        createUserService(createUserRepository(db), createUserRoleService(createUserRoleRepository(db))), 
-        createAddressService(createAddressRepository(db)), 
-        createCustomerService(createCustomerRepository(db)), 
-        createPaymentService(createPaymentRepository(db)), 
-        createCatalogService(db), 
-        createPartnerService(db)
-    );
-    const deliveryService = createDeliveryService(
-        deliveryRepository, 
-        orderService,
-        createOrdersRepository(db) // Add this parameter
-    );
-    
-    // Register delivery controller for REST endpoints
-    fastify.register(deliveryController, {
-        deliveryService,
-        prefix: '/v1',
-    });
-    
-    // Register delivery websocket plugin
-    fastify.register(deliveryWebsocketPlugin(deliveryService));
-
     return fastify;
 }

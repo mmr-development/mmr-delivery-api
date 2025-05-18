@@ -12,7 +12,6 @@ export async function up(db: Kysely<any>): Promise<void> {
         .values([
             { name: 'We have our own delivery drivers' },
             { name: 'We only want you to make deliveries for us' }
-
         ])
         .execute();
 }

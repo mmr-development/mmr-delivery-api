@@ -1,288 +1,251 @@
-import { Kysely, sql } from 'kysely';
+import { Kysely, Transaction } from 'kysely';
 import { Database } from '../../database';
-import { 
-    CourierAvailabilityRow, 
-    CourierLocationRow, 
-    DeliveryRow, 
-    DeliveryWithOrderDetails, 
-    InsertableCourierAvailabilityRow, 
-    InsertableCourierLocationRow,
-    InsertableDeliveryRow, 
-    UpdateableCourierAvailabilityRow, 
-    UpdateableDeliveryRow 
-} from './delivery.tables';
+import { CourierLocationRow, DeliveryRow, DeliveryStatus } from './delivery.types';
 
 export interface DeliveryRepository {
-    createDelivery(delivery: InsertableDeliveryRow): Promise<DeliveryRow>;
-    updateDelivery(deliveryId: number, data: UpdateableDeliveryRow): Promise<DeliveryRow>;
-    getDeliveryById(deliveryId: number): Promise<DeliveryRow>;
-    getDeliveriesForCourier(courierId: string): Promise<DeliveryRow[]>;
-    getActiveDeliveries(): Promise<DeliveryWithOrderDetails[]>;
-    updateCourierLocation(location: InsertableCourierLocationRow): Promise<CourierLocationRow>;
-    getCourierLocation(courierId: string): Promise<CourierLocationRow | null>;
-    getAvailableCouriers(): Promise<string[]>;
-    updateCourierAvailability(data: InsertableCourierAvailabilityRow | UpdateableCourierAvailabilityRow): Promise<CourierAvailabilityRow>;
-    getCourierAvailability(courierId: string): Promise<CourierAvailabilityRow | null>;
-    getOrderDeliveryLocation(orderId: number): Promise<{ latitude: number, longitude: number } | null>;
-    getCustomerDeliveryLocation(orderId: number): Promise<{ latitude: number, longitude: number } | null>;
-    getAvailableCouriersWithLocations(): Promise<Array<{
-        courier_id: string;
-        latitude: number;
-        longitude: number;
-        last_updated: Date;
-    }>>;
-    getAvailableCouriersWithoutActiveDelivery(): Promise<string[]>;
-    getCourierActiveDeliveryCount(courierId: string): Promise<number>;
+  createDelivery(delivery: Omit<DeliveryRow, 'id' | 'created_at' | 'updated_at' | 'assigned_at'>): Promise<DeliveryRow>;
+  findDeliveryById(id: number, selectFields?: string[]): Promise<DeliveryRow | undefined>;
+  findDeliveryByOrderId(orderId: number): Promise<DeliveryRow | undefined>;
+  findDeliveriesByCourier(courierId: string): Promise<DeliveryRow[]>;
+  findActiveDeliveriesByCourier(courierId: string): Promise<DeliveryRow[]>;
+  updateDeliveryStatus(id: number, status: DeliveryStatus): Promise<DeliveryRow>;
+  updateOrderStatus(orderId: number, status: string): Promise<any>;
+  updateCourierLocation(locationData: Omit<CourierLocationRow, 'id' | 'timestamp'>): Promise<CourierLocationRow>;
+  getActiveCouriers(): Promise<string[]>;
+  getAvailableCouriers(): Promise<{courier_id: string, active_deliveries: number}[]>;
+  findOrdersReadyForDelivery(limit?: number): Promise<any[]>;
+  countCourierActiveDeliveries(courierId: string): Promise<number>;
+  transaction<T>(callback: (trx: DeliveryRepository) => Promise<T>): Promise<T>;
+  directUpdateDeliveryStatus(id: number, status: DeliveryStatus): Promise<DeliveryRow>;
 }
 
 export const createDeliveryRepository = (db: Kysely<Database>): DeliveryRepository => {
-    return {
-        async createDelivery(delivery: InsertableDeliveryRow): Promise<DeliveryRow> {
-            return await db
-                .insertInto('delivery')
-                .values(delivery)
-                .returningAll()
-                .executeTakeFirstOrThrow();
-        },
-
-        async updateDelivery(deliveryId: number, data: UpdateableDeliveryRow): Promise<DeliveryRow> {
-            return await db
-                .updateTable('delivery')
-                .set({
-                    ...data,
-                    updated_at: new Date()
-                })
-                .where('id', '=', deliveryId)
-                .returningAll()
-                .executeTakeFirstOrThrow();
-        },
-
-        async getDeliveryById(deliveryId: number): Promise<DeliveryRow> {
-            return await db
-                .selectFrom('delivery')
-                .where('id', '=', deliveryId)
-                .selectAll()
-                .executeTakeFirstOrThrow();
-        },
-
-        async getDeliveriesForCourier(courierId: string): Promise<DeliveryRow[]> {
-            return await db
-                .selectFrom('delivery')
-                .where('courier_id', '=', courierId)
-                .selectAll()
-                .execute();
-        },
-
-        async getActiveDeliveries(): Promise<DeliveryWithOrderDetails[]> {
-            return await db
-                .selectFrom('delivery as d')
-                .innerJoin('order as o', 'o.id', 'd.order_id')
-                .innerJoin('partner as p', 'p.id', 'o.partner_id')
-                .innerJoin('address as pa', 'pa.id', 'p.address_id')
-                .innerJoin('customer as c', 'c.id', 'o.customer_id')
-                .innerJoin('address as ca', 'ca.id', 'c.address_id')
-                .select([
-                    'd.id as delivery_id',
-                    'd.order_id',
-                    'd.status',
-                    'p.name as restaurant_name',
-                    sql<string>`CONCAT(
-                        (SELECT name FROM street WHERE id = pa.street_id), 
-                        ', ', 
-                        pa.address_detail
-                    )`.as('restaurant_address'),
-                    'pa.latitude as restaurant_latitude',
-                    'pa.longitude as restaurant_longitude',
-                    sql<string>`CONCAT(
-                        (SELECT name FROM street WHERE id = ca.street_id), 
-                        ', ', 
-                        ca.address_detail
-                    )`.as('customer_address'),
-                    'ca.latitude as customer_latitude',
-                    'ca.longitude as customer_longitude',
-                    'd.estimated_delivery_time',
-                    'd.created_at'
-                ])
-                .where('d.status', 'in', ['assigned', 'accepted', 'picked_up', 'in_transit'])
-                .execute();
-        },
-
-        async updateCourierLocation(location: InsertableCourierLocationRow): Promise<CourierLocationRow> {
-            return await db
-                .insertInto('courier_location')
-                .values({
-                    ...location,
-                    // Add small random variation for simulation (±100m)
-                    latitude: location.latitude + (Math.random() * 0.002 - 0.001),
-                    longitude: location.longitude + (Math.random() * 0.002 - 0.001)
-                })
-                .returningAll()
-                .executeTakeFirstOrThrow();
-        },
-
-        async getCourierLocation(courierId: string): Promise<CourierLocationRow | null> {
-            return await db
-                .selectFrom('courier_location')
-                .where('courier_id', '=', courierId)
-                .selectAll()
-                .orderBy('timestamp', 'desc')
-                .limit(1)
-                .executeTakeFirst();
-        },
-
-        async getAvailableCouriers(): Promise<string[]> {
-            const results = await db
-                .selectFrom('courier_availability')
-                .select('courier_id')
-                .where('is_available', '=', true)
-                .where('is_working', '=', true)
-                .execute();
-            
-            return results.map(row => row.courier_id);
-        },
-
-        async updateCourierAvailability(data: InsertableCourierAvailabilityRow | UpdateableCourierAvailabilityRow): Promise<CourierAvailabilityRow> {
-            // Check if record exists
-            const existing = await db
-                .selectFrom('courier_availability')
-                .where('courier_id', '=', data.courier_id)
-                .selectAll()
-                .executeTakeFirst();
-
-            if (existing) {
-                return await db
-                    .updateTable('courier_availability')
-                    .set({
-                        ...data,
-                        last_status_change: new Date(),
-                        updated_at: new Date()
-                    })
-                    .where('courier_id', '=', data.courier_id)
-                    .returningAll()
-                    .executeTakeFirstOrThrow();
-            } else {
-                return await db
-                    .insertInto('courier_availability')
-                    .values({
-                        ...data,
-                        last_status_change: new Date(),
-                        created_at: new Date(),
-                        updated_at: new Date()
-                    })
-                    .returningAll()
-                    .executeTakeFirstOrThrow();
-            }
-        },
-
-        async getCourierAvailability(courierId: string): Promise<CourierAvailabilityRow | null> {
-            return await db
-                .selectFrom('courier_availability')
-                .where('courier_id', '=', courierId)
-                .selectAll()
-                .executeTakeFirst();
-        },
-
-        async getOrderDeliveryLocation(orderId: number): Promise<{ latitude: number, longitude: number } | null> {
-            const result = await db
-                .selectFrom('order as o')
-                .innerJoin('partner as p', 'p.id', 'o.partner_id')
-                .innerJoin('address as a', 'a.id', 'p.address_id')
-                .select(['a.latitude', 'a.longitude'])
-                .where('o.id', '=', orderId)
-                .executeTakeFirst();
-            
-            return result || null;
-        },
-
-        async getCustomerDeliveryLocation(orderId: number): Promise<{ latitude: number, longitude: number } | null> {
-            const result = await db
-                .selectFrom('order as o')
-                .innerJoin('customer as c', 'c.id', 'o.customer_id')
-                .innerJoin('address as a', 'a.id', 'c.address_id')
-                .select(['a.latitude', 'a.longitude'])
-                .where('o.id', '=', orderId)
-                .executeTakeFirst();
-            
-            return result || null;
-        },
-
-        async getAvailableCouriersWithLocations(): Promise<Array<{
-            courier_id: string;
-            latitude: number;
-            longitude: number;
-            last_updated: Date;
-        }>> {
-            // Get the latest location for each available courier
-            return await db
-                .selectFrom('courier_availability as ca')
-                .innerJoin(
-                    // First get the most recent location for each courier
-                    db.selectFrom('courier_location as cl')
-                        .innerJoin(
-                            // This subquery finds the latest timestamp per courier
-                            db.selectFrom('courier_location')
-                                .select([
-                                    'courier_id',
-                                    sql<string>`MAX(timestamp)`.as('max_timestamp')
-                                ])
-                                .groupBy('courier_id')
-                                .as('latest'),
-                            // Join on courier_id and matching timestamp
-                            join => join.onRef('latest.courier_id', '=', 'cl.courier_id')
-                                .onRef('latest.max_timestamp', '=', 'cl.timestamp')
-                        )
-                        .select([
-                            'cl.courier_id',
-                            'cl.latitude',
-                            'cl.longitude',
-                            'cl.timestamp as last_updated'
-                        ])
-                        .as('locations'),
-                    join => join.onRef('ca.courier_id', '=', 'locations.courier_id')
-                )
-                .where('ca.is_available', '=', true)
-                .where('ca.is_working', '=', true)
-                .select([
-                    'ca.courier_id',
-                    'locations.latitude',
-                    'locations.longitude',
-                    'locations.last_updated'
-                ])
-                .execute();
-        },
-
-        async getAvailableCouriersWithoutActiveDelivery(): Promise<string[]> {
-            // Get available couriers who aren't currently handling an active delivery
-            const results = await db
-                .selectFrom('courier_availability as ca')
-                .leftJoin(
-                    db.selectFrom('delivery as d')
-                        .select(['courier_id', db.fn.count<number>('id').as('active_deliveries')])
-                        .where('status', 'in', ['assigned', 'accepted', 'picked_up', 'in_transit'])
-                        .groupBy('courier_id')
-                        .as('active_deliveries'),
-                    join => join.onRef('ca.courier_id', '=', 'active_deliveries.courier_id')
-                )
-                .select('ca.courier_id')
-                .where('ca.is_available', '=', true)
-                .where('ca.is_working', '=', true)
-                .where(eb => eb('active_deliveries.active_deliveries', 'is', null)
-                      .or('active_deliveries.active_deliveries', '=', 0))
-                .execute();
-            
-            return results.map(row => row.courier_id);
-        },
-
-        async getCourierActiveDeliveryCount(courierId: string): Promise<number> {
-            // Count how many active deliveries a courier currently has
-            const result = await db
-                .selectFrom('delivery')
-                .select(({ fn }) => fn.count<number>('id').as('count'))
-                .where('courier_id', '=', courierId)
-                .where('status', 'in', ['assigned', 'accepted', 'picked_up', 'in_transit'])
-                .executeTakeFirstOrThrow();
-                
-            return Number(result.count) || 0;
-        }
+  // Helper function to add status-specific timestamp fields
+  const getStatusTimestampFields = (status: DeliveryStatus): Record<string, any> => {
+    const updateData: Record<string, any> = {
+      status,
+      updated_at: new Date()
     };
+    
+    if (status === 'picked_up') {
+      updateData.picked_up_at = new Date();
+    } else if (status === 'delivered') {
+      updateData.delivered_at = new Date();
+    }
+    
+    return updateData;
+  };
+  
+  // Create repository implementation with the given db connection
+  const createRepositoryWithDB = (dbOrTrx: Kysely<Database> | Transaction<Database>): DeliveryRepository => {
+    return {
+      async createDelivery(delivery): Promise<DeliveryRow> {
+        try {
+          console.log(`Creating delivery for order ${delivery.order_id} assigned to courier ${delivery.courier_id}`);
+          const result = await dbOrTrx
+            .insertInto('delivery')
+            .values(delivery)
+            .returningAll()
+            .executeTakeFirstOrThrow();
+          console.log(`Successfully created delivery #${result.id}`);
+          return result;
+        } catch (error) {
+          console.error(`Error creating delivery:`, error);
+          throw error;
+        }
+      },
+      
+      async findDeliveryById(id, selectFields = ['*']): Promise<DeliveryRow | undefined> {
+        try {
+          return await dbOrTrx
+            .selectFrom('delivery')
+            .selectAll()
+            .where('id', '=', id)
+            .executeTakeFirst();
+        } catch (error) {
+          console.error(`Error in findDeliveryById(${id}):`, error);
+          throw error;
+        }
+      },
+      
+      async findDeliveryByOrderId(orderId): Promise<DeliveryRow | undefined> {
+        return await dbOrTrx
+          .selectFrom('delivery')
+          .selectAll()
+          .where('order_id', '=', orderId)
+          .executeTakeFirst();
+      },
+      
+      async findDeliveriesByCourier(courierId): Promise<DeliveryRow[]> {
+        return await dbOrTrx
+          .selectFrom('delivery')
+          .selectAll()
+          .where('courier_id', '=', courierId)
+          .orderBy('created_at', 'desc')
+          .execute();
+      },
+      
+      async findActiveDeliveriesByCourier(courierId): Promise<DeliveryRow[]> {
+        return await dbOrTrx
+          .selectFrom('delivery')
+          .selectAll()
+          .where('courier_id', '=', courierId)
+          .where('status', 'not in', ['delivered', 'failed', 'canceled'])
+          .orderBy('created_at', 'desc')
+          .execute();
+      },
+      
+      async updateDeliveryStatus(id, status): Promise<DeliveryRow> {
+        const updateData = getStatusTimestampFields(status);
+        
+        return await dbOrTrx
+          .updateTable('delivery')
+          .set(updateData)
+          .where('id', '=', id)
+          .returningAll()
+          .executeTakeFirstOrThrow();
+      },
+      
+      async updateOrderStatus(orderId, status): Promise<any> {
+        return await dbOrTrx
+          .updateTable('order')
+          .set({ 
+            status, 
+            updated_at: new Date() 
+          })
+          .where('id', '=', orderId)
+          .returningAll()
+          .executeTakeFirstOrThrow();
+      },
+      
+      async updateCourierLocation(locationData): Promise<CourierLocationRow> {
+        return await dbOrTrx
+          .insertInto('courier_location')
+          .values(locationData)
+          .returningAll()
+          .executeTakeFirstOrThrow();
+      },
+      
+      async getActiveCouriers(): Promise<string[]> {
+        // Find all courier_ids from time_entry where clock_out is null (active couriers)
+        const activeTimeEntries = await dbOrTrx
+          .selectFrom('time_entry as t')
+          .innerJoin('employee as e', 't.courier_id', 'e.id')
+          .select('e.user_id as courier_id')
+          .where('t.clock_out', 'is', null)
+          .execute();
+        
+        return activeTimeEntries.map(entry => entry.courier_id);
+      },
+      
+      async getAvailableCouriers(): Promise<{courier_id: string, active_deliveries: number}[]> {
+        try {
+          // Get all active couriers (those who are clocked in)
+          const activeCouriers = await dbOrTrx
+            .selectFrom('time_entry as t')
+            .innerJoin('employee as e', 't.courier_id', 'e.id')
+            .select('e.user_id as courier_id')
+            .where('t.clock_out', 'is', null)
+            .execute();
+          
+          if (activeCouriers.length === 0) {
+            return [];
+          }
+          
+          // Get the list of courier_ids as an array
+          const courierIds = activeCouriers.map(c => c.courier_id);
+          
+          // Get active delivery counts for each courier
+          const deliveryCounts = await dbOrTrx
+            .selectFrom('delivery as d')
+            .select(['d.courier_id', db.fn.count<number>('d.id').as('active_deliveries')])
+            .where('d.status', 'in', ['assigned', 'picked_up', 'in_transit'])
+            .where('d.courier_id', 'in', courierIds)
+            .groupBy('d.courier_id')
+            .execute();
+          
+          // Map delivery counts to couriers, defaulting to 0 for those without deliveries
+          return courierIds.map(courierId => {
+            const found = deliveryCounts.find(d => d.courier_id === courierId);
+            return {
+              courier_id: courierId,
+              active_deliveries: found ? Number(found.active_deliveries) : 0
+            };
+          });
+        } catch (error) {
+          console.error('Error in getAvailableCouriers:', error);
+          return [];
+        }
+      },
+      
+      async countCourierActiveDeliveries(courierId: string): Promise<number> {
+        const result = await dbOrTrx
+          .selectFrom('delivery')
+          .select(db.fn.count<number>('id').as('count'))
+          .where('courier_id', '=', courierId)
+          .where('status', 'in', ['assigned', 'picked_up', 'in_transit'])
+          .executeTakeFirst();
+          
+        return Number(result?.count || 0);
+      },
+      
+      async findOrdersReadyForDelivery(limit: number = 10): Promise<any[]> {
+        // Find orders that are ready but don't have a delivery record yet
+        return await dbOrTrx
+          .selectFrom('order as o')
+          .leftJoin('delivery as d', 'o.id', 'd.order_id')
+          .selectAll('o')
+          .where(eb => eb.or([
+            eb('o.status', '=', 'ready'),
+            eb('o.status', '=', 'confirmed')
+          ]))
+          .where('o.delivery_type', '=', 'delivery') // Only orders for delivery
+          .where('d.id', 'is', null) // No delivery record exists yet
+          .limit(limit)
+          .orderBy('o.requested_delivery_time', 'asc')
+          .execute();
+      },
+      
+      async transaction<T>(callback: (trx: DeliveryRepository) => Promise<T>): Promise<T> {
+        const timeoutPromise = new Promise<never>((_, reject) => {
+          const id = setTimeout(() => {
+            clearTimeout(id);
+            reject(new Error('Transaction timeout after 10 seconds'));
+          }, 10000);
+        });
+        
+        try {
+          return await Promise.race([
+            db.transaction().execute(async (trx) => {
+              const trxRepo = createRepositoryWithDB(trx);
+              return await callback(trxRepo);
+            }),
+            timeoutPromise
+          ]);
+        } catch (error) {
+          console.error('Transaction error:', error);
+          throw error;
+        }
+      },
+      
+      async directUpdateDeliveryStatus(id, status): Promise<DeliveryRow> {
+        try {
+          const updateData = getStatusTimestampFields(status);
+          
+          // Use db directly, not dbOrTrx to avoid any transaction issues
+          return await db
+            .updateTable('delivery')
+            .set(updateData)
+            .where('id', '=', id)
+            .returningAll()
+            .executeTakeFirstOrThrow();
+        } catch (error) {
+          console.error(`Error in directUpdateDeliveryStatus(${id}, ${status}):`, error);
+          throw error;
+        }
+      },
+    };
+  };
+  
+  return createRepositoryWithDB(db);
 };
