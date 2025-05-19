@@ -1,5 +1,6 @@
 import { FastifySchema } from 'fastify';
 import { Type, Static } from '@sinclair/typebox';
+import { UpdateableEmployeeRow } from "../employee.table";
 
 // Schema for creating a new employee (courier application)
 
@@ -291,35 +292,39 @@ export const updateApplicationStatusSchema: FastifySchema = {
 };
 
 // Update courier application details schema
-export const updateCourierApplicationSchema: FastifySchema = {
-    params: Type.Object({
-        id: Type.Number()
-    }),
-    body: Type.Object({
-        schedule_preference: Type.Optional(Type.Integer({ minimum: 1 })),
-        hours_preference: Type.Optional(Type.Integer({ minimum: 1 })),
-        vehicle_type_id: Type.Optional(Type.Integer({ minimum: 1 })),
-        personal_details: Type.Optional(Type.Object({
-            phone_number: Type.Optional(Type.String({ minLength: 5, maxLength: 20 })),
-            address: Type.Optional(Type.Object({
-                street: Type.Optional(Type.String({ minLength: 1, maxLength: 255 })),
-                address_detail: Type.Optional(Type.String({ minLength: 1, maxLength: 255 })),
-                city: Type.Optional(Type.String({ minLength: 1, maxLength: 100 })),
-                postal_code: Type.Optional(Type.String({ minLength: 1, maxLength: 20 })),
-                country: Type.Optional(Type.String({ minLength: 1, maxLength: 100 }))
-            }))
-        }))
-    }),
-    response: {
-        200: Type.Object({
-            message: Type.String(),
-            id: Type.Number()
-        })
+export const updateCourierApplicationSchema = {
+  description: 'Update a courier application',
+  tags: ['Courier Applications'],
+  summary: 'Update a courier application by ID',
+  params: {
+    type: 'object',
+    properties: {
+      id: { type: 'number' }
     },
-    tags: ['Courier Applications'],
-    description: 'Update courier application details',
-    summary: 'Update courier application',
-    security: [{ bearerAuth: [] }]
+    required: ['id']
+  },
+  body: {
+    type: 'object',
+    properties: {
+      vehicle_type_id: { type: 'number' },
+      schedule_preference_id: { type: 'number' },
+      hours_preference_id: { type: 'number' },
+      data_retention_consent: { type: 'boolean' },
+      is_eighteen_plus: { type: 'boolean' },
+      status: { type: 'string' }
+    },
+    additionalProperties: false
+  },
+  response: {
+    200: {
+      type: 'object',
+      properties: {
+        id: { type: 'number' },
+        // Add other properties that should be returned
+        status: { type: 'string' }
+      }
+    }
+  }
 };
 
 export const deleteCourierApplicationSchema: FastifySchema = {

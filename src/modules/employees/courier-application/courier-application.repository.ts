@@ -8,7 +8,7 @@ export interface CourierApplicationRepository {
     create(application: InsertableEmployeeRow): Promise<EmployeeRow>;
     findAll(options?: { offset?: number; limit?: number; filters?: { name?:string, user_email?:string, status?: string; } }): Promise<{ applications: EmployeeWithRelationsRow[]; count: number }>;
     findById(id: number): Promise<EmployeeWithRelationsRow | null>;
-    update(id: number, application: UpdateableEmployeeRow): Promise<EmployeeRow>;
+    update(id: number, application: Partial<UpdateableEmployeeRow>): Promise<EmployeeRow>;
     delete(id: number): Promise<void>;
 }
 
@@ -203,11 +203,13 @@ export function createCourierApplicationRepository(db: Kysely<Database>): Courie
 
             return applications
         },
-        async update(id: number, application: UpdateableEmployeeRow): Promise<EmployeeRow> {
-            const updatedApplication = await db
-                .updateTable('employee')
+        async update(id: number, application: Partial<UpdateableEmployeeRow>): Promise<EmployeeRow> {
+            // Only update fields that are provided
+            let query = db.updateTable('employee').where('id', '=', id);
+            
+            // Only include fields that are provided in the update
+            const updatedApplication = await query
                 .set(application)
-                .where('id', '=', id)
                 .returningAll()
                 .executeTakeFirstOrThrow();
 

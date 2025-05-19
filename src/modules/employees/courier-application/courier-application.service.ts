@@ -13,7 +13,7 @@ export interface CourierApplicationService {
             user_email?: string;
         }}): Promise<{ applications: EmployeeResponse[], count: number }>;
     findApplicationById(id: number): Promise<EmployeeResponse | null>;
-    updateApplication(id: number, application: EmployeeRow): Promise<EmployeeRow>;
+    updateApplication(id: number, application: Partial<EmployeeRow>): Promise<EmployeeRow>;
     deleteApplication(id: number): Promise<void>;
 }
 
@@ -62,12 +62,14 @@ export function createCourierApplicationService(repository: CourierApplicationRe
                 name?: string;
                 user_email?: string;
                 status?: string; };
-        }): Promise<{ applications: EmployeeResponse[], count: number }> {
+        }): Promise<{ applications: EmployeeResponse[], count: number, limit?: number, offset?: number }> {
             const {applications, count} = await repository.findAll(options);
             const response = applications.map(courierRowToCourier);
             return {
                 applications: response,
-                count: count
+                count: count,
+                limit: options?.limit,
+                offset: options?.offset
             };
         },
         findApplicationById: async function (id: number): Promise<EmployeeResponse | null> {
@@ -77,7 +79,7 @@ export function createCourierApplicationService(repository: CourierApplicationRe
             }
             return courierRowToCourier(application);
         },
-        updateApplication: async function (id: number, application: EmployeeRow): Promise<EmployeeRow> {
+        updateApplication: async function (id: number, application: Partial<EmployeeRow>): Promise<EmployeeRow> {
             return await repository.update(id, application);
         },
         deleteApplication: async function (id: number): Promise<void> {

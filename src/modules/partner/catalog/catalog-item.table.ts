@@ -6,6 +6,7 @@ export interface CatalogItemTable {
     description: string;
     price: number;
     image_url: string;
+    index: number;
     catalog_category_id: number;
     created_at: Generated<Date>;
     updated_at: Generated<Date>;

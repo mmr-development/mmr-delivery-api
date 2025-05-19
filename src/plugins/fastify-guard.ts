@@ -5,6 +5,7 @@ import { FastifyPluginAsync } from 'fastify';
 export const guardPlugin: FastifyPluginAsync = async function (server) {
     server.register(fastifyGuard, {
         requestProperty: 'user',
+        roleProperty: 'roles',
         errorHandler: (error, request, reply) => {
             reply.status(403).send({
                 statusCode: 403,

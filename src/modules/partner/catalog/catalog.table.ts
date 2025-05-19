@@ -29,14 +29,16 @@ export interface CatalogCategoryWithItems {
     items: CatalogItemWithDetails[];
 }
 
-export interface PartnerCatalogWithRelationships {
-    id: number;
-    name: string;
-    partner_id: number;
-    is_active: boolean;
-    created_at: Date;
-    updated_at: Date;
-    categories: CatalogCategoryWithItems[];
+export interface PartnerCatalogWithRelationships extends CatalogRow {
+    categories?: any[];
+    // Partner fields
+    partner_name?: string;
+    logo_url?: string;
+    banner_url?: string;
+    phone_number?: string;
+    delivery_fee?: number | string;
+    min_order_value?: number | string;
+    max_delivery_distance_km?: number | string;
 }
 
 export type CatalogRow = Selectable<CatalogTable>;

@@ -15,6 +15,10 @@ export const CategorySchema = Type.Object({
         description: 'Name of the category displayed to customers',
         examples: ['Appetizers', 'Entrees', 'Desserts']
     }),
+    index: Type.Number({
+        description: 'Display order of the category within the catalog',
+        examples: [0, 1, 2]
+    }),
     created_at: Type.String({
         format: 'date-time',
         description: 'Date and time when the category was created'
@@ -42,7 +46,11 @@ export const UpdateCategorySchema = Type.Object({
     name: Type.Optional(Type.String({
         description: 'Updated name for the category',
         examples: ['Specialty Burgers', 'Premium Salads']
-    }))
+    })),
+    index: Type.Optional(Type.Number({
+        description: 'Updated display order of the category within the catalog',
+        examples: [0, 1, 2]
+    })),
 }, {
     description: 'Data that can be updated for a category'
 });

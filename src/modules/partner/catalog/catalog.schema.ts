@@ -5,6 +5,19 @@ import { ItemSchema } from './catalog-item.schema';
 
 // ------------------- Type Definitions -------------------
 
+// Partner Info Schema for including in catalog responses
+export const PartnerInfoSchema = Type.Object({
+  name: Type.String({ description: 'Name of the partner restaurant' }),
+  logo_url: Type.String({ description: 'URL to the partner logo image' }),
+  banner_url: Type.String({ description: 'URL to the partner banner image' }),
+  phone_number: Type.String({ description: 'Contact phone number for the partner' }),
+  delivery_fee: Type.Number({ description: 'Base delivery fee charged by this partner' }),
+  min_order_value: Type.Number({ description: 'Minimum order amount required' }),
+  max_delivery_distance_km: Type.Number({ description: 'Maximum distance for delivery in kilometers' })
+}, {
+  description: 'Information about the partner restaurant'
+});
+
 // Catalog Types
 export const CatalogSchema = Type.Object({
   id: Type.Number({ description: 'Unique identifier for the catalog' }),
@@ -52,7 +65,7 @@ export const UpdateCatalogSchema = Type.Object({
   description: 'Data that can be updated for a catalog'
 });
 
-// Full catalog representation with nested structure
+// Full catalog representation with nested structure - without partner info nested inside
 export const FullCatalogSchema = Type.Object({
   ...CatalogSchema.properties,
   categories: Type.Array(Type.Object({
@@ -67,6 +80,7 @@ export const FullCatalogSchema = Type.Object({
 
 // ------------------- TypeScript Types -------------------
 
+export type PartnerInfo = Static<typeof PartnerInfoSchema>;
 export type Catalog = Static<typeof CatalogSchema>;
 export type CreateCatalogRequest = Static<typeof CreateCatalogSchema>;
 export type UpdateCatalogRequest = Static<typeof UpdateCatalogSchema>;
@@ -106,14 +120,15 @@ export const getFullCatalogSchema: FastifySchema = {
   }),
   response: {
     200: Type.Object({
+      partner: PartnerInfoSchema,
       catalogs: Type.Array(FullCatalogSchema, {
         description: 'Complete list of catalogs with all categories and items'
       })
     })
   },
-  description: 'Get all catalogs with their complete structure of categories and items',
+  description: 'Get all catalogs with their complete structure of categories and items, along with partner details at the top level',
   tags: ['Partner Catalogs'],
-  summary: 'Get detailed catalogs'
+  summary: 'Get detailed catalogs with partner info'
 };
 
 export const createCatalogSchema: FastifySchema = {

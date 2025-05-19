@@ -7,6 +7,7 @@ import { SchedulePreferenceService } from './schedule-preference/schedule-prefer
 import { ControllerError } from '../../utils/errors';
 import { CreateSchedulePreference, createSchedulePreferenceSchema, deleteSchedulePreferenceSchema, getAllSchedulePreferencesSchema, getSchedulePreferenceByIdSchema, UpdateSchedulePreference, updateSchedulePreferenceSchema } from './schedule-preference/schedule-preference.schema';
 import { deleteHourPreferenceSchema, getAllHourPreferencesSchema, getHourPreferenceByIdSchema, updateHourPreferenceSchema } from './hours-preference';
+import { UpdateableEmployeeRow } from './employee.table';
 
 export interface EmployeesControllerOptions {
     courierApplicationService: CourierApplicationService,
@@ -68,17 +69,17 @@ export const employeeController: FastifyPluginAsync<EmployeesControllerOptions> 
         }
     });
 
-    // server.patch<{ Body:  }>('/courier-applications/:id/', { schema: { ...updateCourierApplicationSchema } }, async (request, reply) => {
-    //     const { id } = request.params as { id: number };
-    //     const { body } = request;
-    //     try {
-    //         const updatedApplication = await courierApplicationService.updateApplication(id, body);
-    //         reply.status(200).send(updatedApplication);
-    //     } catch (error) {
-    //         console.error('Error updating application:', error);
-    //         reply.status(500).send({ message: 'Internal server error' });
-    //     }
-    // });
+    server.patch<{ Params: { id: number }, Body: UpdateableEmployeeRow }>('/courier-applications/:id/', { schema: { ...updateCourierApplicationSchema }, preHandler: [server.authenticate, server.guard.role('admin')] }, async (request, reply) => {
+        const { id } = request.params;
+        const { body } = request;
+        try {
+            const updatedApplication = await courierApplicationService.updateApplication(id, body);
+            reply.status(200).send(updatedApplication);
+        } catch (error) {
+            console.error('Error updating application:', error);
+            reply.status(500).send({ message: 'Internal server error' });
+        }
+    });
 
     server.delete('/courier-applications/:id/', { schema: { ...deleteCourierApplicationSchema } }, async (request, reply) => {
         const { id } = request.params as { id: number };

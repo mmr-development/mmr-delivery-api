@@ -6,7 +6,8 @@ export async function up(db: Kysely<any>): Promise<void> {
         .addColumn('name', 'varchar(255)', (col) => col.notNull())
         .addColumn('phone_number', 'varchar(20)', (col) => col.notNull())
         .addColumn('address_id', 'integer', (col) => col.notNull().references('address.id').onDelete('cascade'))
-        .addColumn('image_url', 'varchar(255)', (col) => col.notNull())
+        .addColumn('logo_url', 'varchar(255)', (col) => col.notNull())
+        .addColumn('banner_url', 'varchar(255)', (col) => col.notNull())
         .addColumn('status', 'varchar(50)', (col) => col.notNull().defaultTo('pending').check(sql`status IN ('pending', 'reviewing', 'approved', 'rejected', 'suspended', 'activated')`))
         .addColumn('delivery_method_id', 'integer', (col) => col.notNull().references('delivery_method.id').onDelete('cascade'))
         .addColumn('business_type_id', 'integer', (col) => col.notNull().references('business_type.id').onDelete('cascade'))
@@ -52,6 +53,7 @@ export async function up(db: Kysely<any>): Promise<void> {
         .addColumn('id', 'serial', (col) => col.primaryKey())
         .addColumn('catalog_id', 'integer', (col) => col.notNull().references('catalog.id').onDelete('cascade'))
         .addColumn('name', 'varchar(255)', (col) => col.notNull())
+        .addColumn('index', 'integer', (col) => col.notNull())
         .addColumn('is_published', 'boolean', (col) => col.notNull().defaultTo(false))
         .addColumn('created_at', 'timestamp', (col) => col.notNull().defaultTo(sql`now()`))
         .addColumn('updated_at', 'timestamp', (col) => col.notNull().defaultTo(sql`now()`))
@@ -60,6 +62,7 @@ export async function up(db: Kysely<any>): Promise<void> {
     await db.schema.createTable('catalog_item')
         .addColumn('id', 'serial', (col) => col.primaryKey())
         .addColumn('catalog_category_id', 'integer', (col) => col.notNull().references('catalog_category.id').onDelete('cascade'))
+        .addColumn('index', 'integer', (col) => col.notNull())
         .addColumn('name', 'varchar(255)', (col) => col.notNull())
         .addColumn('description', 'text', (col) => col.notNull())
         .addColumn('price', 'decimal', (col) => col.notNull())
@@ -68,6 +71,28 @@ export async function up(db: Kysely<any>): Promise<void> {
         .addColumn('created_at', 'timestamp', (col) => col.notNull().defaultTo(sql`now()`))
         .addColumn('updated_at', 'timestamp', (col) => col.notNull().defaultTo(sql`now()`))
         .execute();
+
+    await sql`
+        WITH indexed_categories AS (
+          SELECT id, ROW_NUMBER() OVER (PARTITION BY catalog_id ORDER BY created_at) - 1 AS new_index
+          FROM catalog_category
+        )
+        UPDATE catalog_category cc
+        SET index = ic.new_index
+        FROM indexed_categories ic
+        WHERE cc.id = ic.id
+    `.execute(db);
+
+    await sql`
+        WITH indexed_items AS (
+          SELECT id, ROW_NUMBER() OVER (PARTITION BY catalog_category_id ORDER BY created_at) - 1 AS new_index
+          FROM catalog_item
+        )
+        UPDATE catalog_item ci
+        SET index = ii.new_index
+        FROM indexed_items ii
+        WHERE ci.id = ii.id
+    `.execute(db);
 }
 
 export async function down(db: Kysely<any>): Promise<void> {
@@ -76,4 +101,13 @@ export async function down(db: Kysely<any>): Promise<void> {
     await db.schema.dropTable('catalog').execute();
     await db.schema.dropTable('catalog_category').execute();
     await db.schema.dropTable('catalog_item').execute();
+    await db.schema
+        .alterTable('catalog_category')
+        .dropColumn('index')
+        .execute();
+
+    await db.schema
+        .alterTable('catalog_item')
+        .dropColumn('index')
+        .execute();
 }

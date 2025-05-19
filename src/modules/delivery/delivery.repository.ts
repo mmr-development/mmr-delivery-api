@@ -8,6 +8,9 @@ export interface DeliveryRepository {
   findDeliveryByOrderId(orderId: number): Promise<DeliveryRow | undefined>;
   findDeliveriesByCourier(courierId: string): Promise<DeliveryRow[]>;
   findActiveDeliveriesByCourier(courierId: string): Promise<DeliveryRow[]>;
+  findDetailedDeliveriesByCourier(courierId: string): Promise<any[]>; // New method
+  findDetailedDeliveryById(id: number): Promise<any>; // New method
+  findDetailedDeliveryByOrderId(orderId: number): Promise<any>; // New method
   updateDeliveryStatus(id: number, status: DeliveryStatus): Promise<DeliveryRow>;
   updateOrderStatus(orderId: number, status: string): Promise<any>;
   updateCourierLocation(locationData: Omit<CourierLocationRow, 'id' | 'timestamp'>): Promise<CourierLocationRow>;
@@ -243,6 +246,175 @@ export const createDeliveryRepository = (db: Kysely<Database>): DeliveryReposito
           console.error(`Error in directUpdateDeliveryStatus(${id}, ${status}):`, error);
           throw error;
         }
+      },
+      
+      async findDetailedDeliveriesByCourier(courierId: string): Promise<any[]> {
+        try {
+          // Get basic delivery records
+          const deliveries = await dbOrTrx
+            .selectFrom('delivery as d')
+            .selectAll('d')
+            .where('d.courier_id', '=', courierId)
+            .where('d.status', 'not in', ['delivered', 'failed', 'canceled'])
+            .orderBy('d.created_at', 'desc')
+            .execute();
+          
+          // Enhance each delivery with additional information
+          const enhancedDeliveries = await Promise.all(deliveries.map(async delivery => {
+            // Get order information
+            const order = await dbOrTrx
+              .selectFrom('order as o')
+              .select(['o.id', 'o.partner_id', 'o.status', 'o.total_amount', 'o.tip_amount', 'o.requested_delivery_time'])
+              .where('o.id', '=', delivery.order_id)
+              .executeTakeFirst();
+              
+            // Get order items
+            const orderItems = await dbOrTrx
+              .selectFrom('order_item as oi')
+              .leftJoin('catalog_item as ci', 'oi.catalog_item_id', 'ci.id')
+              .select(['ci.name as item_name', 'oi.quantity', 'oi.price', 'oi.note'])
+              .where('oi.order_id', '=', delivery.order_id)
+              .execute();
+              
+            // Get pickup (partner) location
+            const pickup = await dbOrTrx
+              .selectFrom('partner as p')
+              .innerJoin('address as a', 'p.address_id', 'a.id')
+              .select(['p.name', 'a.latitude', 'a.longitude'])
+              .where('p.id', '=', order?.partner_id)
+              .executeTakeFirst();
+            
+            // Get delivery (customer) location
+            const deliveryLocation = await dbOrTrx
+              .selectFrom('order as o')
+              .innerJoin('customer as c', 'o.customer_id', 'c.id')
+              .innerJoin('user as u', 'c.user_id', 'u.id')
+              .innerJoin('address as a', 'c.address_id', 'a.id')
+              .select([
+                'u.first_name', 
+                'u.last_name', 
+                'u.phone_number',
+                'a.latitude', 
+                'a.longitude',
+                'a.address_detail'
+              ])
+              .where('o.id', '=', delivery.order_id)
+              .executeTakeFirst();
+            
+            return {
+              ...delivery,
+              order: {
+                ...order,
+                items: orderItems
+              },
+              pickup: pickup || { name: 'Unknown Restaurant', lat: null, lng: null },
+              delivery: deliveryLocation ? {
+                customer_name: `${deliveryLocation.first_name} ${deliveryLocation.last_name}`,
+                phone: deliveryLocation.phone_number,
+                address: deliveryLocation.address_detail,
+                lat: deliveryLocation.latitude,
+                lng: deliveryLocation.longitude
+              } : { customer_name: 'Unknown Customer', lat: null, lng: null }
+            };
+          }));
+          
+          return enhancedDeliveries;
+        } catch (error) {
+          console.error(`Error in findDetailedDeliveriesByCourier(${courierId}):`, error);
+          throw error;
+        }
+      },
+      
+      async findDetailedDeliveryById(id: number): Promise<any> {
+        try {
+          const delivery = await dbOrTrx
+            .selectFrom('delivery')
+            .selectAll()
+            .where('id', '=', id)
+            .executeTakeFirst();
+            
+          if (!delivery) return undefined;
+          
+          return this.enhanceDeliveryWithDetails(delivery);
+        } catch (error) {
+          console.error(`Error in findDetailedDeliveryById(${id}):`, error);
+          throw error;
+        }
+      },
+      
+      async findDetailedDeliveryByOrderId(orderId: number): Promise<any> {
+        try {
+          const delivery = await dbOrTrx
+            .selectFrom('delivery')
+            .selectAll()
+            .where('order_id', '=', orderId)
+            .executeTakeFirst();
+            
+          if (!delivery) return undefined;
+          
+          return this.enhanceDeliveryWithDetails(delivery);
+        } catch (error) {
+          console.error(`Error in findDetailedDeliveryByOrderId(${orderId}):`, error);
+          throw error;
+        }
+      },
+      
+      async enhanceDeliveryWithDetails(delivery: DeliveryRow): Promise<any> {
+        // Get order information
+        const order = await dbOrTrx
+          .selectFrom('order as o')
+          .select(['o.id', 'o.partner_id', 'o.status', 'o.total_amount', 'o.tip_amount', 'o.requested_delivery_time'])
+          .where('o.id', '=', delivery.order_id)
+          .executeTakeFirst();
+          
+        // Get order items
+        const orderItems = await dbOrTrx
+          .selectFrom('order_item as oi')
+          .leftJoin('catalog_item as ci', 'oi.catalog_item_id', 'ci.id')
+          .select(['ci.name as item_name', 'oi.quantity', 'oi.price', 'oi.note'])
+          .where('oi.order_id', '=', delivery.order_id)
+          .execute();
+          
+        // Get pickup (partner) location
+        const pickup = await dbOrTrx
+          .selectFrom('partner as p')
+          .innerJoin('address as a', 'p.address_id', 'a.id')
+          .select(['p.name', 'a.latitude', 'a.longitude'])
+          .where('p.id', '=', order?.partner_id)
+          .executeTakeFirst();
+        
+        // Get delivery (customer) location
+        const deliveryLocation = await dbOrTrx
+          .selectFrom('order as o')
+          .innerJoin('customer as c', 'o.customer_id', 'c.id')
+          .innerJoin('user as u', 'c.user_id', 'u.id')
+          .innerJoin('address as a', 'c.address_id', 'a.id')
+          .select([
+            'u.first_name', 
+            'u.last_name', 
+            'u.phone_number',
+            'a.latitude', 
+            'a.longitude',
+            'a.address_detail'
+          ])
+          .where('o.id', '=', delivery.order_id)
+          .executeTakeFirst();
+        
+        return {
+          ...delivery,
+          order: {
+            ...order,
+            items: orderItems
+          },
+          pickup: pickup || { name: 'Unknown Restaurant', lat: null, lng: null },
+          delivery: deliveryLocation ? {
+            customer_name: `${deliveryLocation.first_name} ${deliveryLocation.last_name}`,
+            phone: deliveryLocation.phone_number,
+            address: deliveryLocation.address_detail,
+            lat: deliveryLocation.latitude,
+            lng: deliveryLocation.longitude
+          } : { customer_name: 'Unknown Customer', lat: null, lng: null }
+        };
       },
     };
   };

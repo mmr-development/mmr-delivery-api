@@ -210,6 +210,7 @@ export const createDeliveryService = (
         const estimatedDeliveryTime = order.requested_delivery_time || 
           new Date(Date.now() + 30 * 60 * 1000);
         
+          console.log(` 213 Assigning delivery for order ${orderId} to courier ${courierId}`);
         const delivery = await deliveryRepository.createDelivery({
           order_id: orderId,
           courier_id: courierId,
@@ -287,8 +288,9 @@ export const createDeliveryService = (
     
     async getActiveCourierDeliveries(courierId: string): Promise<DeliveryRow[]> {
       try {
+        // Use the new detailed method instead of the basic one
         return await deliveryRepository.transaction(async (trx) => {
-          return await trx.findActiveDeliveriesByCourier(courierId);
+          return await trx.findDetailedDeliveriesByCourier(courierId);
         });
       } catch (error) {
         console.error(`Error getting active deliveries for courier ${courierId}:`, error);
@@ -312,51 +314,199 @@ export const createDeliveryService = (
     async forceAssignDelivery(orderId: number): Promise<DeliveryRow | null> {
       try {
         const order = await ordersRepository.findOrderById(orderId);
-        
+        console.log(`Force assigning delivery for order ${orderId}`);
         if (!order || order.delivery_type !== 'delivery') {
+          console.log(`Order ${orderId} is not a delivery type or does not exist`);
           return null;
         }
         
-        const existingDelivery = await deliveryRepository.findDeliveryByOrderId(orderId);
-        if (existingDelivery) {
-          return existingDelivery;
-        }
-        
-        const availableCouriers = await deliveryRepository.getAvailableCouriers();
-        const idleCouriers = availableCouriers.filter(c => c.active_deliveries === 0);
-        
-        if (!idleCouriers.length) {
-          return null;
-        }
-        
-        const bestCourier = idleCouriers[0];
-        const estimatedDeliveryTime = order.requested_delivery_time || 
-          new Date(Date.now() + 30 * 60 * 1000);
-        
-        const delivery = await deliveryRepository.createDelivery({
-          order_id: orderId,
-          courier_id: bestCourier.courier_id,
-          status: 'assigned',
-          picked_up_at: null,
-          delivered_at: null,
-          estimated_delivery_time: estimatedDeliveryTime
-        });
-        
-        // Try to notify courier if connected
-        if (this.isConnected(bestCourier.courier_id)) {
-          await this.notifyCourier(bestCourier.courier_id, 'delivery_assigned', {
-            delivery_id: delivery.id,
+        // Get partner location from the order
+        const partner = await ordersRepository.getPartnerById(order.partner_id);
+        console.log(`Partner location for order ${orderId}:`, partner);
+        if (!partner || !partner.latitude || !partner.longitude) {
+          console.log(`Cannot get partner location for order ${orderId}, using standard assignment`);
+          const availableCouriers = await deliveryRepository.getAvailableCouriers();
+          const idleCouriers = availableCouriers.filter(c => c.active_deliveries === 0);
+          if (!idleCouriers.length) return null;
+          const bestCourier = idleCouriers[0];
+          // Continue with standard assignment...
+        } else {
+          console.log(`Partner location found for order ${orderId}:`, partner);
+          // Get all available couriers
+          const availableCouriers = await deliveryRepository.getAvailableCouriers();
+          const idleCouriers = availableCouriers.filter(c => c.active_deliveries === 0);
+          console.log(`Idle couriers for order ${orderId}:`, idleCouriers);
+          if (!idleCouriers.length) {
+            console.log(`No idle couriers available for order ${orderId}`);
+            return null;
+          }
+          
+          // Create a tracking structure for courier locations
+          const courierLocationPromises: Array<{
+            courierId: string,
+            locationPromise: Promise<{lat: number, lng: number} | null>
+          }> = [];
+          
+          // Request location from each idle courier
+          for (const courier of idleCouriers) {
+            if (this.isConnected(courier.courier_id)) {
+              console.log(`Requesting location from courier ${courier.courier_id}`);
+              const locationPromise = new Promise<{lat: number, lng: number} | null>((resolve) => {
+                // Set up listener for one-time location response
+                const locationListener = (event: any) => {
+                  try {
+                    // Parse the message data correctly from the event
+                    const rawData = event.data || event.toString();
+                    console.log(`Raw message from courier ${courier.courier_id}:`, typeof rawData, rawData.slice(0, 100));
+                    
+                    const data = JSON.parse(rawData);
+                    console.log(`Parsed message from courier ${courier.courier_id}:`, data);
+                    
+                    if (data.type === 'location_response') {
+                      console.log(`✅ Received location response from courier ${courier.courier_id}:`, data.payload);
+                      resolve({
+                        lat: data.payload.latitude,
+                        lng: data.payload.longitude
+                      });
+                      return true; // Remove listener
+                    } else if (data.type === 'location_error') {
+                      console.log(`❌ Received location error from courier ${courier.courier_id}:`, data.payload);
+                      resolve(null);
+                      return true; // Remove listener
+                    }
+                    // For other message types, keep the listener active
+                    console.log(`Ignoring non-location message from courier ${courier.courier_id}: ${data.type}`);
+                    return false;
+                  } catch (e) {
+                    console.error(`Error parsing message from courier ${courier.courier_id}:`, e);
+                    return false; // Keep listener on error
+                  }
+                };
+                
+                // Send location request via WebSocket
+                this.notifyCourier(courier.courier_id, 'location_request', { 
+                  request_id: orderId,
+                  timestamp: new Date().toISOString() 
+                });
+                
+                console.log(`Sent location request to courier ${courier.courier_id}`);
+                
+                // Add temporary listener to the courier's socket
+                const courierConnection = connectionManager.getConnection(courier.courier_id);
+                if (courierConnection && courierConnection.socket) {
+                  console.log(`Adding location listener for courier ${courier.courier_id}`);
+                  
+                  // For WebSockets, we need to properly handle the 'message' event
+                  courierConnection.socket.on('message', locationListener);
+                  
+                  console.log(`Waiting for location response from courier ${courier.courier_id}`);
+                  
+                  // Remove listener after timeout
+                  setTimeout(() => {
+                    console.log(`Location request timed out for courier ${courier.courier_id}`);
+                    try {
+                      courierConnection.socket.removeListener('message', locationListener);
+                    } catch (e) {
+                      console.error(`Error removing listener for courier ${courier.courier_id}:`, e);
+                    }
+                    resolve(null); // Resolve with null if no response
+                  }, 5000); // 5-second timeout
+                } else {
+                  console.log(`No active socket for courier ${courier.courier_id}`);
+                  resolve(null);
+                }
+              });
+              
+              courierLocationPromises.push({ 
+                courierId: courier.courier_id, 
+                locationPromise 
+              });
+            }
+          }
+          
+          // Wait for all promises to resolve (with 5-second max wait time)
+          const timeout = new Promise(resolve => setTimeout(resolve, 5000));
+          const racePromise = Promise.race([
+            Promise.all(courierLocationPromises.map(item => item.locationPromise)),
+            timeout.then(() => null)
+          ]);
+          
+          // Wait for responses or timeout
+          await racePromise;
+          
+          // Calculate distances and find closest courier
+          let bestCourier = idleCouriers[0]; // Default to first courier
+          let shortestDistance = Infinity;
+          
+          for (const { courierId, locationPromise } of courierLocationPromises) {
+            console.log(`locationPromise for courier ${courierId}`);
+            const location = await locationPromise;
+                console.log(`Waiting for locationPromise for courier ${location}`);
+            if (location) {
+              // Calculate distance using Haversine formula
+              const distance = this.calculateDistance(
+                partner.latitude, 
+                partner.longitude, 
+                location.lat, 
+                location.lng
+              );
+              console.log(`Distance from partner to courier ${courierId}: ${distance} km`);
+              if (distance < shortestDistance) {
+                shortestDistance = distance;
+                bestCourier = idleCouriers.find(c => c.courier_id === courierId) || bestCourier;
+              }
+            }
+          }
+          
+          const estimatedDeliveryTime = order.requested_delivery_time || 
+            new Date(Date.now() + 30 * 60 * 1000);
+          console.log(`Partner location: ${partner.latitude}, ${partner.longitude}`);
+          console.log(`Best courier: ${bestCourier.courier_id}`);
+          console.log(`Best courier location: ${bestCourier.latitude}, ${bestCourier.longitude}`);
+          console.log(`Distance to best courier: ${shortestDistance} km`);
+          console.log(`Estimated delivery time: ${estimatedDeliveryTime}`);
+          console.log(`Courier location: ${bestCourier.lat}, ${bestCourier.lng}`);
+            console.log(` 434 Assigning delivery for order ${orderId} to courier ${bestCourier.courier_id}`);
+          const delivery = await deliveryRepository.createDelivery({
             order_id: orderId,
-            status: delivery.status,
-            estimated_delivery_time: delivery.estimated_delivery_time
+            courier_id: bestCourier.courier_id,
+            status: 'assigned',
+            picked_up_at: null,
+            delivered_at: null,
+            estimated_delivery_time: estimatedDeliveryTime
           });
+          
+          // Try to notify courier if connected
+          if (this.isConnected(bestCourier.courier_id)) {
+            await this.notifyCourier(bestCourier.courier_id, 'delivery_assigned', {
+              delivery_id: delivery.id,
+              order_id: orderId,
+              status: delivery.status,
+              estimated_delivery_time: delivery.estimated_delivery_time
+            });
+          }
+          
+          return delivery;
         }
-        
-        return delivery;
       } catch (error) {
         console.error(`Error force assigning delivery for order ${orderId}:`, error);
         return null;
       }
+    },
+    
+    // Helper function to calculate distance using Haversine formula
+    // Add this function to the delivery service object
+    calculateDistance(lat1: number, lng1: number, lat2: number, lng2: number): number {
+      const R = 6371; // Radius of the earth in km
+      const dLat = (lat2 - lat1) * Math.PI / 180;
+      const dLng = (lng2 - lng1) * Math.PI / 180;
+      const a = 
+        Math.sin(dLat/2) * Math.sin(dLat/2) +
+        Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * 
+        Math.sin(dLng/2) * Math.sin(dLng/2); 
+      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)); 
+      const distance = R * c; // Distance in km
+      return distance;
     },
     
     async checkAndAssignDelivery(orderId: number): Promise<DeliveryRow | null> {

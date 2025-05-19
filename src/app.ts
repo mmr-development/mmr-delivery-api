@@ -125,7 +125,7 @@ export async function buildApp(fastify: FastifyInstance, opts: AppOptions) {
         dialect: new PostgresDialect({
             pool: async () => pool,
         }),
-        log: ['query']
+        // log: ['query']
     });
     
     // Simple debug endpoint for checking pool status (disable in production)
@@ -146,20 +146,20 @@ export async function buildApp(fastify: FastifyInstance, opts: AppOptions) {
         origin: [
             'https://10.130.54.32:5501',
             'https://localhost:5501',
+            'http://localhost:5501',
             'http://172.19.16.1:5501',
             'https://172.19.16.1:5501',
             'http://localhost:5501',
-            'http://127.0.0.1:5500',
+            'http://127.0.0.1:5501',
             'https://10.130.54.22:5501',
             'http://10.130.54.44:8082',
             'http://10.130.54.44:8081',
             'https://172.30.80.1:5501',
             'https://172.22.240.1:5501',
-            'http://127.0.0.1:5501',
             'https://127.0.0.1:5501',
             'https://10.130.54.44:8081',
             'http://10.130.54.44:8081',
-            'https://8ce3-77-214-126-101.ngrok-free.app'
+            'https://9c87-77-241-136-45.ngrok-free.app'
         ],
         methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
         allowedHeaders: ['Content-Type', 'Authorization'],
@@ -209,7 +209,7 @@ export async function buildApp(fastify: FastifyInstance, opts: AppOptions) {
             createUserRoleService(createUserRoleRepository(db)),
             createPartnerService(db),
         ),
-        prefix: '/v1/partner-applications'
+        prefix: '/v1'
     });
 
     fastify.register(catalogController, {

@@ -20,10 +20,15 @@ export const catalogController: FastifyPluginAsync<CatalogControllerOptions> = a
 
     server.get<{ Params: { partner_id: number } }>(
         '/partners/:partner_id/catalogs/full/',
-        { schema: { ...getFullCatalogSchema } },
+        { schema: getFullCatalogSchema },
         async (request, reply) => {
-            const catalogs = await catalogService.findFullCatalogsByPartnerId(request.params.partner_id);
-            return reply.code(200).send({ catalogs });
+            const { partner_id } = request.params;
+            const result = await catalogService.findFullCatalogsByPartnerId(partner_id);
+
+            return {
+              partner: result.partner,
+              catalogs: result.catalogs
+            };
         });
 
     server.patch<{ Params: { catalog_id: number }, Body: UpdateCatalogRequest }>(
@@ -172,7 +177,7 @@ export const catalogController: FastifyPluginAsync<CatalogControllerOptions> = a
             }
 
             // Check file type
-            const allowedMimeTypes = ['image/jpeg', 'image/png', 'image/jpg'];
+            const allowedMimeTypes = ['image/jpeg', 'image/png', 'image/jpg', 'image/webp'];
             if (!allowedMimeTypes.includes(data.mimetype)) {
                 return reply.code(400).send({
                     message: 'Invalid file type. Only JPG, JPEG, and PNG are allowed.'

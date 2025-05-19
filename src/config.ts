@@ -10,8 +10,17 @@ export interface Config {
     };
     readonly jwt: {
         readonly algorithm: string;
-        readonly accessTokenExpiration: number;
-        readonly refreshTokenExpiration: number;
+        readonly accessTokenExpiration: string;
+        readonly refreshTokenExpiration: string;
+    };
+    readonly cookie: {
+        readonly name: string;
+        readonly secret: string;
+        readonly sameSite: string;
+        readonly secure: boolean;
+        readonly httpOnly: boolean;
+        readonly refreshTokenMaxAge: number;  // Added separate value for refresh tokens
+        readonly accessTokenMaxAge: number;   // Added separate value for access tokens
     };
     readonly database: ConnectionConfig;
     readonly email: {
@@ -42,8 +51,17 @@ export const config: Config = {
     },
     jwt: {
         algorithm: process.env.JWT_ALGORITHM || 'RS256',
-        accessTokenExpiration: parseInt(process.env.JWT_ACCESS_TOKEN_EXPIRATION || '3600'),
-        refreshTokenExpiration: parseInt(process.env.JWT_REFRESH_TOKEN_EXPIRATION || '604800'),
+        accessTokenExpiration: process.env.JWT_ACCESS_TOKEN_EXPIRATION || '15m',
+        refreshTokenExpiration: process.env.JWT_REFRESH_TOKEN_EXPIRATION || '7d',
+    },
+    cookie: {
+        name: process.env.COOKIE_NAME || 'mmr_delivery',
+        secret: process.env.COOKIE_SECRET || 'mmr_delivery',
+        sameSite: process.env.COOKIE_SAME_SITE || 'none',
+        secure: process.env.COOKIE_SECURE === 'true',
+        httpOnly: process.env.COOKIE_HTTP_ONLY === 'true',
+        refreshTokenMaxAge: parseInt(process.env.COOKIE_REFRESH_TOKEN_MAX_AGE || '604800'), // 7 days in seconds
+        accessTokenMaxAge: parseInt(process.env.COOKIE_ACCESS_TOKEN_MAX_AGE || '900'),      // 15 minutes in seconds
     },
     email: {
         host: process.env.EMAIL_HOST || 'smtp.gmail.com',

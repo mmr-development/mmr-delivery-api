@@ -19,7 +19,30 @@ export const deliveryController: FastifyPluginAsync<{
           assigned_at: Type.String({format: 'date-time'}),
           picked_up_at: Type.Optional(Type.String({format: 'date-time'})),
           delivered_at: Type.Optional(Type.String({format: 'date-time'})),
-          estimated_delivery_time: Type.Optional(Type.String({format: 'date-time'}))
+          estimated_delivery_time: Type.Optional(Type.String({format: 'date-time'})),
+          // Add new fields to schema
+          pickup: Type.Optional(Type.Object({
+            name: Type.String(),
+            lat: Type.Optional(Type.Number()),
+            lng: Type.Optional(Type.Number())
+          })),
+          delivery: Type.Optional(Type.Object({
+            customer_name: Type.String(),
+            phone: Type.Optional(Type.String()),
+            address: Type.Optional(Type.String()),
+            lat: Type.Optional(Type.Number()),
+            lng: Type.Optional(Type.Number())
+          })),
+          order: Type.Optional(Type.Object({
+            total_amount: Type.Number(),
+            tip_amount: Type.Optional(Type.Number()),
+            items: Type.Array(Type.Object({
+              item_name: Type.String(),
+              quantity: Type.Number(),
+              price: Type.Number(),
+              note: Type.Optional(Type.String())
+            }))
+          }))
         }))
       }
     },
@@ -48,6 +71,7 @@ export const deliveryController: FastifyPluginAsync<{
         return [];
       }
       
+      // Format the response with enhanced data
       return deliveries.map(d => ({
         id: d.id,
         order_id: d.order_id,
@@ -55,7 +79,30 @@ export const deliveryController: FastifyPluginAsync<{
         assigned_at: d.assigned_at.toISOString(),
         picked_up_at: d.picked_up_at?.toISOString(),
         delivered_at: d.delivered_at?.toISOString(),
-        estimated_delivery_time: d.estimated_delivery_time?.toISOString()
+        estimated_delivery_time: d.estimated_delivery_time?.toISOString(),
+        // Include enhanced data
+        pickup: d.pickup ? {
+          name: d.pickup.name,
+          lat: d.pickup.latitude,
+          lng: d.pickup.longitude
+        } : null,
+        delivery: d.delivery ? {
+          customer_name: d.delivery.customer_name,
+          phone: d.delivery.phone,
+          address: d.delivery.address,
+          lat: d.delivery.lat,
+          lng: d.delivery.lng
+        } : null,
+        order: d.order ? {
+          total_amount: d.order.total_amount,
+          tip_amount: d.order.tip_amount,
+          items: d.order.items?.map(item => ({
+            item_name: item.item_name,
+            quantity: item.quantity,
+            price: item.price,
+            note: item.note
+          }))
+        } : null
       }));
     } catch (error) {
       // Log the error with full details

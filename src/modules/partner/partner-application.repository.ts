@@ -50,7 +50,7 @@ export function createPartnerApplicationRepository(db: Kysely<Database>): Partne
                 status?: string; 
                 user_email?: string; 
             } 
-        }): Promise<{ applications: PartnerWithRelationsRow[]; count: number }> {
+        }): Promise<{ applications: PartnerWithRelationsRow[]; count: number; limit?: number; offset?: number }> {
             const offset = options?.offset ?? 0;
             const limit = options?.limit ?? null;
             const filters = options?.filters ?? {};
@@ -117,7 +117,9 @@ export function createPartnerApplicationRepository(db: Kysely<Database>): Partne
             
             return {
                 applications,
-                count: Number(count)
+                count: Number(count),
+                ...(limit !== null && { limit }),
+                offset
             };
         },
         async findById(id: number): Promise<PartnerWithRelationsRow | undefined> {

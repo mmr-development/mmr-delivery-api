@@ -1,4 +1,4 @@
-import { FastifyPluginAsync } from 'fastify';
+import { FastifyPluginAsync, FastifyReply } from 'fastify';
 import { InvalidCredentialsError, InvalidSignInMethodError, SignInMethodService, UserNotFoundError } from '../users/sign-in-method/sign-in-method.service';
 import { AuthenticationTokenService, RefreshToken } from './authentication-token.service';
 import { UserService } from '../users/user.service';
@@ -6,6 +6,8 @@ import { PasswordResetTokenService } from './password-reset.service';
 import { ChangePasswordRequest, changePasswordSchema, forgotPasswordSchema, loginSchema, logoutSchema, refreshTokenSchema, ResetPasswordParams, ResetPasswordRequest, resetPasswordSchema, signupSchema } from './auth.schema';
 import { ControllerError } from '../../utils/errors';
 import * as jwt from 'jsonwebtoken';
+import * as crypto from 'crypto';
+import { config } from '../../config';
 
 export interface AuthenticationControllerOptions {
     signInMethodService: SignInMethodService;
@@ -14,7 +16,33 @@ export interface AuthenticationControllerOptions {
     passwordResetService: PasswordResetTokenService;
 }
 
+const tokenProcessingMap = new Map<string, {
+    result?: {
+        accessToken: { accessToken: string },
+        refreshToken: { refreshToken: string }
+    },
+    timestamp: number
+}>();
+
 export const authenticationController: FastifyPluginAsync<AuthenticationControllerOptions> = async function (server, { signInMethodService, authenticationTokenService, userService, passwordResetService }) {
+
+    function setAuthCookies(reply: FastifyReply, accessToken: string, refreshToken: string) {
+        reply.setCookie('access_token', accessToken, {
+            httpOnly: config.cookie.httpOnly,
+            secure: true,
+            sameSite: 'none',
+            path: '/',
+            maxAge: config.cookie.accessTokenMaxAge,
+        });
+
+        reply.setCookie('refresh_token', refreshToken, {
+            httpOnly: config.cookie.httpOnly,
+            secure: true,
+            sameSite: 'none',
+            path: '/',
+            maxAge: config.cookie.refreshTokenMaxAge,
+        });
+    }
     server.post<{ Body: { email: string, password: string }, Querystring: { client_id: string } }>('/auth/sign-in/', { schema: { ...loginSchema } }, async (request, reply) => {
         try {
             const { email, password } = request.body;
@@ -30,23 +58,11 @@ export const authenticationController: FastifyPluginAsync<AuthenticationControll
                 return await signInMethodService.signInUsingPassword(trx, signInMethod);
             });
 
-            // Set HTTP-only cookie for access token
-            reply.setCookie('access_token', signedInUser.accessToken.accessToken, {
-                httpOnly: true,         // prevent JS access
-                secure: true,           // HTTPS only (allowed on localhost)
-                sameSite: 'none',       // permit cross-site usage
-                path: '/',
-                maxAge: 3600
-            });
-
-            // Set HTTP-only cookie for refresh token
-            reply.setCookie('refresh_token', signedInUser.refreshToken.refreshToken, {
-                httpOnly: true,
-                secure: true,
-                sameSite: 'none',
-                path: '/',
-                maxAge: 2592000
-            });
+            setAuthCookies(
+                reply,
+                signedInUser.accessToken.accessToken,
+                signedInUser.refreshToken.refreshToken
+            );
 
             reply.status(200).send({
                 access_token: signedInUser.accessToken.accessToken,
@@ -66,35 +82,36 @@ export const authenticationController: FastifyPluginAsync<AuthenticationControll
 
         // Revoke the access token
         await request.revokeToken();
-    
+
         // Try to get refresh token from cookie first, then from body
         let refreshToken = request.cookies.refresh_token;
-        
+
         // If not in cookie, check request body
         if (!refreshToken && request.body.refresh_token) {
             refreshToken = request.body.refresh_token;
         }
-    
+
         if (refreshToken) {
             // Revoke refresh token in database
             await authenticationTokenService.revokeRefreshToken(userId, refreshToken);
         }
-    
+
         // Clean up cookies if they were used
         if (request.cookies.access_token) {
             reply.clearCookie('access_token', { path: '/' });
         }
-        
+
         if (request.cookies.refresh_token) {
-            reply.clearCookie('refresh_token', { path: '/auth/refresh-token/' });
+            reply.clearCookie('refresh_token', { path: '/' });
         }
-    
+
         reply.status(200).send({
             message: "Successfully logged out"
         });
     })
 
-    server.post<{ Body: { refresh_token?: string }}>('/auth/refresh-token/', {  }, async (request, reply) => {
+    server.post<{ Body: { refresh_token?: string } }>('/auth/refresh-token/', {}, async (request, reply) => {
+
         let refreshToken = request.cookies.refresh_token;
         if (!refreshToken && request.body.refresh_token) {
             refreshToken = request.body.refresh_token;
@@ -103,47 +120,71 @@ export const authenticationController: FastifyPluginAsync<AuthenticationControll
         if (!refreshToken) {
             return reply.status(400).send({ message: "Refresh token is required" });
         }
+        const tokenHash = crypto.createHash('sha256').update(refreshToken).digest('hex');
+        const processingInfo = tokenProcessingMap.get(tokenHash);
+
+        if (processingInfo && Date.now() - processingInfo.timestamp < 5000) {
+            if (processingInfo.result) {
+                setAuthCookies(
+                    reply,
+                    processingInfo.result.accessToken.accessToken,
+                    processingInfo.result.refreshToken.refreshToken
+                );
+
+                return reply.status(200).send({
+                    access_token: processingInfo.result.accessToken.accessToken,
+                    refresh_token: processingInfo.result.refreshToken.refreshToken,
+                    cached: true,
+                });
+            } else {
+                return reply.status(429).send({
+                    message: "Token refresh in progress",
+                });
+            }
+        }
+
+        // Set processing status and clean up old entries
+        tokenProcessingMap.set(tokenHash, { timestamp: Date.now() });
+        if (tokenProcessingMap.size > 1000) {
+            const oldestEntries = [...tokenProcessingMap.entries()]
+                .sort((a, b) => a[1].timestamp - b[1].timestamp)
+                .slice(0, 100);
+
+            for (const [key] of oldestEntries) {
+                tokenProcessingMap.delete(key);
+            }
+        }
 
         try {
-            const decodedToken = authenticationTokenService.verifyToken(refreshToken) as jwt.JwtPayload & { role?: string };
-            
-            if (!decodedToken.role) {
-                throw new Error('Role not found in token');
+            const decodedToken = authenticationTokenService.verifyToken(refreshToken) as jwt.JwtPayload & { roles?: string[] };
+
+            if (!decodedToken.roles) {
+                decodedToken.roles = [];
             }
-            
-            // Pass the role in claims to maintain it during rotation
-            const { accessToken, refreshToken: newRefreshToken } = await authenticationTokenService.rotateTokens(refreshToken, {
-                role: decodedToken.role,
+
+            const { accessToken, refreshToken: newRefreshToken } =
+                await authenticationTokenService.rotateTokens(refreshToken);
+
+            tokenProcessingMap.set(tokenHash, {
+                result: { accessToken, refreshToken: newRefreshToken },
+                timestamp: Date.now()
             });
 
             // Set cookies for both tokens
-            reply.setCookie('refresh_token', newRefreshToken.refreshToken, {
-                httpOnly: true,
-                secure: true,
-                sameSite: 'none',
-                path: '/',
-                maxAge: 2592000  // 30 days
-            });
+            setAuthCookies(
+                reply,
+                accessToken.accessToken,
+                newRefreshToken.refreshToken
+            );
 
-            reply.setCookie('access_token', accessToken.accessToken, {
-                httpOnly: true,
-                secure: true,
-                sameSite: 'none',
-                path: '/',
-                maxAge: 3600  // 1 hour
-            });
-        
-            // Return tokens in response body too
-            reply.status(200).send({
+            return reply.status(200).send({
                 access_token: accessToken.accessToken,
-                refresh_token: newRefreshToken.refreshToken
+                refresh_token: newRefreshToken.refreshToken,
             });
         } catch (error) {
-            // Handle token validation errors
-            reply.clearCookie('access_token', { path: '/' });
-            reply.clearCookie('refresh_token', { path: '/' });
-            
-            return reply.status(401).send({ 
+            console.log('Error verifying refresh token:', error);
+            return reply.status(401).send({
+                error: error,
                 message: "Invalid or expired refresh token"
             });
         }

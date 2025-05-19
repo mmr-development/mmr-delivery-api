@@ -153,6 +153,27 @@
         .delivery-icon {
             color: #4CAF50;
         }
+        
+        .order-summary {
+            background-color: #f9f9f9;
+            border-radius: 4px;
+            padding: 10px;
+            margin: 10px 0;
+        }
+        
+        .order-items {
+            margin-top: 10px;
+        }
+        
+        .order-items ul {
+            padding-left: 20px;
+        }
+        
+        .tip-info {
+            color: #4CAF50;
+            font-style: italic;
+            font-size: 0.9em;
+        }
     </style>
 </head>
 <body>
@@ -386,6 +407,78 @@
                                     }
                                 }
                                 break;
+
+                            case 'location_request':
+                                logMessage('System', 'Location request received', 'incoming');
+                                
+                                // Get the request ID if provided
+                                const requestId = data.payload?.request_id;
+                                
+                                // Try to get location from browser
+                                if (navigator.geolocation) {
+                                    navigator.geolocation.getCurrentPosition(
+                                        (position) => {
+                                            const latitude = position.coords.latitude;
+                                            const longitude = position.coords.longitude;
+                                            console.log('Location:', latitude, longitude);
+                                            logMessage('System', `Got location: ${latitude}, ${longitude}`, 'outgoing');
+                                            logMessage('System', `Sending location back to server...`, 'outgoing');
+                                            
+                                            // Send location back to the server
+                                            ws.send(JSON.stringify({
+                                                type: 'location_response',
+                                                payload: {
+                                                    latitude,
+                                                    longitude,
+                                                    accuracy: position.coords.accuracy,
+                                                    timestamp: new Date().toISOString(),
+                                                    request_id: requestId,
+                                                }
+                                            }));
+                                            logMessage('System', `Location sent successfully`, 'outgoing');
+                                        },
+                                        (error) => {
+                                            // Handle location error
+                                            let errorMessage = 'Unknown error';
+                                            switch(error.code) {
+                                                case error.PERMISSION_DENIED:
+                                                    errorMessage = 'User denied geolocation permission';
+                                                    break;
+                                                case error.POSITION_UNAVAILABLE:
+                                                    errorMessage = 'Location information unavailable';
+                                                    break;
+                                                case error.TIMEOUT:
+                                                    errorMessage = 'Location request timed out';
+                                                    break;
+                                            }
+                                            logMessage('Error', `Location error: ${errorMessage}`, 'error');
+                                            
+                                            // Send error response
+                                            ws.send(JSON.stringify({
+                                                type: 'location_error',
+                                                payload: {
+                                                    error: errorMessage,
+                                                    request_id: requestId
+                                                }
+                                            }));
+                                        },
+                                        {
+                                            enableHighAccuracy: true,
+                                            timeout: 5000,
+                                            maximumAge: 0
+                                        }
+                                    );
+                                } else {
+                                    logMessage('Error', 'Geolocation is not supported by this browser', 'error');
+                                    ws.send(JSON.stringify({
+                                        type: 'location_error',
+                                        payload: {
+                                            error: 'Geolocation not supported',
+                                            request_id: requestId
+                                        }
+                                    }));
+                                }
+                                break;
                                 
                             case 'heartbeat_ack':
                                 // Heartbeat was acknowledged, connection is good
@@ -492,105 +585,126 @@
         
         // Display deliveries received from WebSocket or HTTP API
         function displayDeliveries(deliveries) {
-            if (!deliveries || !deliveries.length) {
-                deliveriesList.innerHTML = '<p>No deliveries assigned yet.</p>';
-                return;
-            }
+          if (!deliveries || !deliveries.length) {
+            deliveriesList.innerHTML = '<p>No deliveries assigned yet.</p>';
+            return;
+          }
+          
+          deliveriesList.innerHTML = '';
+          deliveries.forEach(delivery => {
+            const card = document.createElement('div');
+            card.className = 'delivery-card';
             
-            deliveriesList.innerHTML = '';
-            deliveries.forEach(delivery => {
-                const card = document.createElement('div');
-                card.className = 'delivery-card';
-                
-                // Format dates for better display
-                const assignedDate = new Date(delivery.assigned_at).toLocaleString();
-                const estimatedDelivery = delivery.estimated_delivery_time ? 
-                    new Date(delivery.estimated_delivery_time).toLocaleString() : 'Not specified';
-                const pickedUpDate = delivery.picked_up_at ? 
-                    new Date(delivery.picked_up_at).toLocaleString() : null;
-                const deliveredDate = delivery.delivered_at ? 
-                    new Date(delivery.delivered_at).toLocaleString() : null;
-                
-                // Get valid next statuses for this delivery
-                const validNextStatuses = validStatusTransitions[delivery.status] || [];
-                
-                // Build status dropdown options
-                let statusOptionsHtml = '';
-                
-                // Always include current status as selected (but disabled if terminal state)
-                const isTerminalState = validNextStatuses.length === 0;
-                statusOptionsHtml += `<option value="${delivery.status}" selected ${isTerminalState ? 'disabled' : ''}>${statusLabels[delivery.status]} (Current)</option>`;
-                
-                // Add valid next statuses
-                validNextStatuses.forEach(status => {
-                    statusOptionsHtml += `<option value="${status}">${statusLabels[status]}</option>`;
-                });
-                
-                // Get pickup and delivery information
-                const pickup = delivery.pickup || { name: 'Unknown Restaurant', lat: null, lng: null };
-                const deliveryInfo = delivery.delivery || { customer_name: 'Unknown Customer', phone: '', lat: null, lng: null };
-                
-                // Create Google Maps links if coordinates are available
-                const pickupMapLink = pickup.lat && pickup.lng ? 
-                    `<a href="https://www.google.com/maps?q=${pickup.lat},${pickup.lng}" target="_blank" class="map-link">Open in Maps</a>` : '';
-                
-                const deliveryMapLink = deliveryInfo.lat && deliveryInfo.lng ? 
-                    `<a href="https://www.google.com/maps?q=${deliveryInfo.lat},${deliveryInfo.lng}" target="_blank" class="map-link">Open in Maps</a>` : '';
-                
-                // Format phone as a clickable link
-                const phoneLink = deliveryInfo.phone ? 
-                    `<a href="tel:${deliveryInfo.phone}" class="phone-link">${deliveryInfo.phone}</a>` : 'No phone number';
-                
-                // Create directions link if both coordinates are available
-                const directionsLink = (pickup.lat && pickup.lng && deliveryInfo.lat && deliveryInfo.lng) ?
-                    `<a href="https://www.google.com/maps/dir/${pickup.lat},${pickup.lng}/${deliveryInfo.lat},${deliveryInfo.lng}" target="_blank" class="map-link">Get Directions</a>` : '';
-                
-                card.innerHTML = `
-                    <h3>Delivery #${delivery.id} - Order #${delivery.order_id}</h3>
-                    <p>
-                        <span class="status-badge status-${delivery.status}">
-                            ${delivery.status.toUpperCase()}
-                        </span>
-                        ${directionsLink}
-                    </p>
-                    
-                    <div class="location-details">
-                        <div class="location-title">
-                            <span class="location-icon pickup-icon">📍</span> Pickup: ${pickup.name || 'Unknown Restaurant'}
-                            ${pickupMapLink}
-                        </div>
-                        <p><strong>Coordinates:</strong> ${pickup.lat ? `${pickup.lat.toFixed(5)}, ${pickup.lng.toFixed(5)}` : 'Not available'}</p>
-                    </div>
-                    
-                    <div class="location-details">
-                        <div class="location-title">
-                            <span class="location-icon delivery-icon">🏠</span> Delivery: ${deliveryInfo.customer_name || 'Unknown Customer'}
-                            ${deliveryMapLink}
-                        </div>
-                        <p><strong>Phone:</strong> ${phoneLink}</p>
-                        <p><strong>Coordinates:</strong> ${deliveryInfo.lat ? `${deliveryInfo.lat.toFixed(5)}, ${deliveryInfo.lng.toFixed(5)}` : 'Not available'}</p>
-                    </div>
-                    
-                    <p><strong>Assigned:</strong> ${assignedDate}</p>
-                    ${pickedUpDate ? `<p><strong>Picked up:</strong> ${pickedUpDate}</p>` : ''}
-                    ${deliveredDate ? `<p><strong>Delivered:</strong> ${deliveredDate}</p>` : ''}
-                    <p><strong>Estimated delivery:</strong> ${estimatedDelivery}</p>
-                    
-                    <div class="form-group">
-                        <label for="status-${delivery.id}">Update Status:</label>
-                        <select id="status-${delivery.id}" ${isTerminalState ? 'disabled' : ''}>
-                            ${statusOptionsHtml}
-                        </select>
-                        <button onclick="updateDeliveryStatus(${delivery.id})" ${isTerminalState ? 'disabled' : ''}>
-                            ${isTerminalState ? 'Terminal Status' : 'Update'}
-                        </button>
-                    </div>
-                    ${isTerminalState ? '<p><em>This delivery is in a terminal state and cannot be updated further.</em></p>' : ''}
-                `;
-                
-                deliveriesList.appendChild(card);
+            // Format dates for better display
+            const assignedDate = new Date(delivery.assigned_at).toLocaleString();
+            const estimatedDelivery = delivery.estimated_delivery_time ? 
+              new Date(delivery.estimated_delivery_time).toLocaleString() : 'Not specified';
+            const pickedUpDate = delivery.picked_up_at ? 
+              new Date(delivery.picked_up_at).toLocaleString() : null;
+            const deliveredDate = delivery.delivered_at ? 
+              new Date(delivery.delivered_at).toLocaleString() : null;
+            
+            // Get valid next statuses for this delivery
+            const validNextStatuses = validStatusTransitions[delivery.status] || [];
+            
+            // Build status dropdown options
+            let statusOptionsHtml = '';
+            
+            // Always include current status as selected (but disabled if terminal state)
+            const isTerminalState = validNextStatuses.length === 0;
+            statusOptionsHtml += `<option value="${delivery.status}" selected ${isTerminalState ? 'disabled' : ''}>${statusLabels[delivery.status]} (Current)</option>`;
+            
+            // Add valid next statuses
+            validNextStatuses.forEach(status => {
+              statusOptionsHtml += `<option value="${status}">${statusLabels[status]}</option>`;
             });
             
+            // Get order information 
+            const orderItems = delivery.order?.items || [];
+            const orderTotal = delivery.order?.total_amount || 0;
+            const tipAmount = delivery.order?.tip_amount || 0;
+            
+            // Format order items
+            let orderItemsHtml = '';
+            if (orderItems.length > 0) {
+              orderItemsHtml = '<div class="order-items"><h4>Order Items:</h4><ul>';
+              orderItems.forEach(item => {
+                orderItemsHtml += `<li>${item.quantity}x ${item.item_name} - $${item.price.toFixed(2)}${item.note ? `<br><small>Note: ${item.note}</small>` : ''}</li>`;
+              });
+              orderItemsHtml += '</ul></div>';
+            }
+            
+            // Get pickup and delivery information
+            const pickup = delivery.pickup || { name: 'Unknown Restaurant', lat: null, lng: null };
+            const deliveryInfo = delivery.delivery || { customer_name: 'Unknown Customer', phone: '', address: '', lat: null, lng: null };
+            
+            // Create Google Maps links if coordinates are available
+            const pickupMapLink = pickup.lat && pickup.lng ? 
+              `<a href="https://www.google.com/maps?q=${pickup.lat},${pickup.lng}" target="_blank" class="map-link">Open in Maps</a>` : '';
+            
+            const deliveryMapLink = deliveryInfo.lat && deliveryInfo.lng ? 
+              `<a href="https://www.google.com/maps?q=${deliveryInfo.lat},${deliveryInfo.lng}" target="_blank" class="map-link">Open in Maps</a>` : '';
+            
+            // Format phone as a clickable link
+            const phoneLink = deliveryInfo.phone ? 
+              `<a href="tel:${deliveryInfo.phone}" class="phone-link">${deliveryInfo.phone}</a>` : 'No phone number';
+            
+            // Create directions link if both coordinates are available
+            const directionsLink = (pickup.lat && pickup.lng && deliveryInfo.lat && deliveryInfo.lng) ?
+              `<a href="https://www.google.com/maps/dir/${pickup.lat},${pickup.lng}/${deliveryInfo.lat},${deliveryInfo.lng}" target="_blank" class="map-link">Get Directions</a>` : '';
+            
+            card.innerHTML = `
+              <h3>Delivery #${delivery.id} - Order #${delivery.order_id}</h3>
+              <p>
+                <span class="status-badge status-${delivery.status}">
+                  ${delivery.status.toUpperCase()}
+                </span>
+                ${directionsLink}
+              </p>
+              
+              <div class="order-summary">
+                <h4>Order Summary</h4>
+                <p><strong>Total:</strong> $${orderTotal.toFixed(2)} <span class="tip-info">(includes tip: $${tipAmount.toFixed(2)})</span></p>
+                ${orderItemsHtml}
+              </div>
+              
+              <div class="location-details">
+                <div class="location-title">
+                  <span class="location-icon pickup-icon">📍</span> Pickup: ${pickup.name || 'Unknown Restaurant'}
+                  ${pickupMapLink}
+                </div>
+                <p><strong>Coordinates:</strong> ${pickup.lat ? `${pickup.lat.toFixed(5)}, ${pickup.lng.toFixed(5)}` : 'Not available'}</p>
+              </div>
+              
+              <div class="location-details">
+                <div class="location-title">
+                  <span class="location-icon delivery-icon">🏠</span> Delivery: ${deliveryInfo.customer_name || 'Unknown Customer'}
+                  ${deliveryMapLink}
+                </div>
+                <p><strong>Phone:</strong> ${phoneLink}</p>
+                <p><strong>Address:</strong> ${deliveryInfo.address || 'Not available'}</p>
+                <p><strong>Coordinates:</strong> ${deliveryInfo.lat ? `${deliveryInfo.lat.toFixed(5)}, ${deliveryInfo.lng.toFixed(5)}` : 'Not available'}</p>
+              </div>
+              
+              <p><strong>Assigned:</strong> ${assignedDate}</p>
+              ${pickedUpDate ? `<p><strong>Picked up:</strong> ${pickedUpDate}</p>` : ''}
+              ${deliveredDate ? `<p><strong>Delivered:</strong> ${deliveredDate}</p>` : ''}
+              <p><strong>Estimated delivery:</strong> ${estimatedDelivery}</p>
+              
+              <div class="form-group">
+                <label for="status-${delivery.id}">Update Status:</label>
+                <select id="status-${delivery.id}" ${isTerminalState ? 'disabled' : ''}>
+                  ${statusOptionsHtml}
+                </select>
+                <button onclick="updateDeliveryStatus(${delivery.id})" ${isTerminalState ? 'disabled' : ''}>
+                  ${isTerminalState ? 'Terminal Status' : 'Update'}
+                </button>
+              </div>
+              ${isTerminalState ? '<p><em>This delivery is in a terminal state and cannot be updated further.</em></p>' : ''}
+            `;
+            
+            deliveriesList.appendChild(card);
+          });
         }
         
         // Update delivery status with optimistic updates for better user experience

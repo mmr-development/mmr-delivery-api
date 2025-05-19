@@ -116,7 +116,7 @@ export function createPartnerApplicationService(
         }
 
         // Generate activation token - using the real implementation now
-        const activationToken = await this.generateActivationToken(id);
+        // const activationToken = await this.generateActivationToken(id);
 
         // Send approval email with the combined template
         await emailService.sendPartnerApplicationStatusEmail(
@@ -124,7 +124,7 @@ export function createPartnerApplicationService(
           'approved', // Use string enum instead of boolean
           existingApplication.name || 'Your Business',
           `${existingApplication.first_name || ''} ${existingApplication.last_name || ''}`.trim(),
-          { setupToken: activationToken }
+          { setupToken: 'activationToken' }
         );
       }
 

@@ -62,7 +62,9 @@ export function createSignInMethodService(authenticationTokenService: Authentica
             });
 
             // Generate tokens
-            const refreshToken = await authenticationTokenService.createRefreshToken(user.id);
+            const refreshToken = await authenticationTokenService.createRefreshToken(user.id, {
+                roles: ['customer'] // Default role for signed up users
+            });
             const accessToken = await authenticationTokenService.createAccessToken(refreshToken.refreshToken);
 
             return {
@@ -89,10 +91,13 @@ export function createSignInMethodService(authenticationTokenService: Authentica
 
             const userRole = await userService.getUserRole(user.id, method.client_id);
 
-            const refreshToken = await authenticationTokenService.createRefreshToken(user.id, userRole.role_name);
-            const accessToken = await authenticationTokenService.createAccessToken(refreshToken.refreshToken, {
-                role: userRole.role_name,
+            // Pass role via claims object instead of direct parameter
+            const refreshToken = await authenticationTokenService.createRefreshToken(user.id, {
+                roles: [userRole.role_name] // Always use an array for roles
             });
+            
+            // No need to pass role in createAccessToken as it will be extracted from the refresh token
+            const accessToken = await authenticationTokenService.createAccessToken(refreshToken.refreshToken);
 
             return {
                 accessToken,

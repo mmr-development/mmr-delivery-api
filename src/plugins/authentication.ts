@@ -28,7 +28,7 @@ declare module '@fastify/jwt' {
             sub: string;
             jti: string;
             exp: number;
-            role: string;
+            roles: string[];
         }
     }
 }

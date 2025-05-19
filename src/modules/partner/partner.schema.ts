@@ -245,6 +245,19 @@ export type DeletePartnerApplicationResponse = {
 export const PartnerProperties = {
   id: Type.Number(),
   name: Type.String(),
+  logo_url: Type.String(),
+  banner_url: Type.String(),
+  phone_number: Type.String(),
+  status: Type.String(),
+  delivery: Type.Object({
+    fee: Type.Number(),
+    min_order_value: Type.Number(),
+    max_distance_km: Type.Number()
+  }),
+  business_type: Type.Object({
+    id: Type.Number(),
+    name: Type.String()
+  }),
   address: Type.Object({
     id: Type.Number(),
     street: Type.String(),
@@ -253,20 +266,7 @@ export const PartnerProperties = {
     postal_code: Type.String(),
     country: Type.String(),
   }),
-  // logo_url: Type.String(),
-  // delivery_time_min: Type.Number(),
-  // delivery_time_max: Type.Number(),
-  // delivery_fee: Type.Number(),
-  // minimum_order_amount: Type.Number(),
-  // average_rating: Type.Number(),
-  // rating_count: Type.Number(),
-  // hygiene_rating: Type.Optional(Type.Number()),
-  // is_new: Type.Boolean(),
-  // has_stamp_card: Type.Boolean(),
-  // is_open_now: Type.Boolean(),
-  // cuisines: Type.Array(Type.String()),
-  // created_at: Type.String({ format: 'date-time' }),
-  // updated_at: Type.String({ format: 'date-time' }),
+  // Other commented properties can be uncommented as needed
 };
 
 // Restaurant card in listings
@@ -292,6 +292,10 @@ export const PartnerFilterSchema = Type.Object({
   limit: Type.Optional(Type.Number({
     description: 'Maximum number of items to return',
   })),
+  open_now: Type.Optional(Type.Boolean()),
+  timezone: Type.Optional(Type.String({
+    description: 'Timezone for open_now filter. Accepts IANA timezone names (e.g., "Europe/Copenhagen", "America/New_York"), common abbreviations (e.g., "UTC", "GMT"), or UTC offsets (e.g., "UTC+2", "-05:00")'
+  }))
 });
 
 // Restaurant listing response

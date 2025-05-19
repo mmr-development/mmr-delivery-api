@@ -14,7 +14,7 @@ export const partnerApplicationController: FastifyPluginAsync<PartnerApplication
 
   // Submit application
   fastify.post(
-    '/',
+    '/partner-applications/',
     {
       schema: {
         tags: ['Partner Applications'],
@@ -64,7 +64,7 @@ export const partnerApplicationController: FastifyPluginAsync<PartnerApplication
 
   // Get all applications
   fastify.get(
-    '/',
+    '/partner-applications/',
     {
       schema: {
         tags: ['Partner Applications'],
@@ -84,13 +84,22 @@ export const partnerApplicationController: FastifyPluginAsync<PartnerApplication
         limit,
         filters: { status },
       });
-      return result;
+      
+      // Transform to match expected pagination format
+      return {
+        applications: result.applications,
+        pagination: {
+          total: result.count,
+          offset: offset || 0,
+          limit: limit || 10
+        }
+      };
     }
   );
 
   // Get application by ID
   fastify.get(
-    '/:id',
+    '/partner-applications/:id',
     {
       schema: {
         tags: ['Partner Applications'],
@@ -115,7 +124,7 @@ export const partnerApplicationController: FastifyPluginAsync<PartnerApplication
 
   // Update application
   fastify.patch(
-    '/:id',
+    '/partner-applications/:id',
     {
       schema: {
         tags: ['Partner Applications'],
@@ -145,7 +154,7 @@ export const partnerApplicationController: FastifyPluginAsync<PartnerApplication
 
   // Delete application
   fastify.delete(
-    '/:id',
+    '/partner-applications/:id',
     {
       schema: {
         tags: ['Partner Applications'],
@@ -165,7 +174,7 @@ export const partnerApplicationController: FastifyPluginAsync<PartnerApplication
 
   // Activate partner account
   fastify.post(
-    '/activate',
+    '/partner-applications/activate',
     {
       schema: {
         tags: ['Partner Applications'],

@@ -12,7 +12,7 @@ export class AccessTokenExpiredError extends AccessTokenError { }
 export class RefreshTokenUserIdMismatchError extends Error { }
 
 export interface AuthenticationTokenService {
-    createRefreshToken(sub: string, role: string): Promise<RefreshToken>;
+    createRefreshToken(sub: string, claims?: Record<string, any>): Promise<RefreshToken>;
     signRefreshToken(tokenPayload: RefreshTokenPayload): RefreshToken;
     createAccessToken(refreshToken: string, claims?: Record<string, any>): Promise<AccessToken>;
     verifyRefreshToken(token: string): Promise<RefreshTokenPayload>;
@@ -58,7 +58,7 @@ export function createAuthenticationTokenService(repository: RefreshTokenReposit
     }
 
     return {
-        async createRefreshToken(userId: string, role: string | string[]): Promise<RefreshToken> {
+        async createRefreshToken(userId: string, claims?: Record<string, any>): Promise<RefreshToken> {
             const { refresh_token_id } = await repository.insertRefreshToken(userId);
 
             // Create the base payload
@@ -71,15 +71,15 @@ export function createAuthenticationTokenService(repository: RefreshTokenReposit
             // Sign the token with roles in claims
             const options: jwt.SignOptions = {
                 algorithm: config.jwt.algorithm as jwt.Algorithm,
-                expiresIn: config.jwt.accessTokenExpiration,
+                expiresIn: config.jwt.refreshTokenExpiration as jwt.SignOptions['expiresIn'],
             };
             
-            // Store as a roles array if multiple, or role string if single
-            const rolesClaim = Array.isArray(role) ? { roles: role } : { role };
+            // Get roles from claims, ensuring we always use an array
+            const roles = claims?.roles || [];
             
             return {
                 refreshToken: jwt.sign(
-                    { ...tokenPayload, ...rolesClaim }, // Include roles in JWT payload
+                    { ...tokenPayload, roles }, // Always use 'roles' as an array
                     privateKey,
                     options
                 )
@@ -89,7 +89,7 @@ export function createAuthenticationTokenService(repository: RefreshTokenReposit
         signRefreshToken(tokenPayload: RefreshTokenPayload): RefreshToken {
             const options: jwt.SignOptions = {
                 algorithm: config.jwt.algorithm as jwt.Algorithm,
-                expiresIn: config.jwt.accessTokenExpiration,
+                expiresIn: config.jwt.accessTokenExpiration as jwt.SignOptions['expiresIn'],
             };
             return {
                 refreshToken: jwt.sign(
@@ -104,18 +104,18 @@ export function createAuthenticationTokenService(repository: RefreshTokenReposit
             const payload = await this.verifyRefreshToken(refreshToken);
             const { sub, jti } = payload;
             
-            // Get role from JWT claims
+            // Get role from JWT claims, now consistently using 'roles'
             const decodedToken = this.verifyToken(refreshToken) as jwt.JwtPayload;
-            const roles = decodedToken.roles || [decodedToken.role].filter(Boolean);
+            const roles = decodedToken.roles || [];
 
             await repository.updateRefreshToken(jti, {
                 last_refreshed_at: new Date(),
             });
 
-            // Merge the role with any existing claims
+            // Simply merge claims with roles - no cleaning needed
             const updatedClaims = { 
                 ...claims,
-                role: roles
+                roles 
             };
 
             return this.signAccessToken({ sub, refresh_token_id: jti, jti }, updatedClaims);
@@ -160,7 +160,7 @@ export function createAuthenticationTokenService(repository: RefreshTokenReposit
             const jti = crypto.randomUUID();
             const options: jwt.SignOptions = {
                 algorithm: config.jwt.algorithm as jwt.Algorithm,
-                expiresIn: config.jwt.accessTokenExpiration,
+                expiresIn: config.jwt.accessTokenExpiration as jwt.SignOptions['expiresIn'],
             };
 
             return {
@@ -185,18 +185,19 @@ export function createAuthenticationTokenService(repository: RefreshTokenReposit
             const payload = await this.verifyRefreshToken(refreshToken);
             const { sub, jti } = payload;
             
-            // Get role from JWT claims
+            // Get role from JWT claims, now consistently using 'roles'
             const decodedToken = this.verifyToken(refreshToken) as jwt.JwtPayload;
-            const roles = decodedToken.roles || [decodedToken.role].filter(Boolean);
+            const roles = decodedToken.roles || [];
 
-            const newRefreshToken = await this.createRefreshToken(sub, roles);
+            // Pass the roles when creating the new refresh token
+            const newRefreshToken = await this.createRefreshToken(sub, { roles });
 
             const { jti: newRefreshTokenId } = await this.verifyRefreshToken(newRefreshToken.refreshToken);
             
-            // Merge the role with any existing claims
+            // Simply merge claims with roles - no cleaning needed
             const updatedClaims = {
                 ...claims,
-                role: roles
+                roles
             };
             
             const accessToken = this.signAccessToken({ 

@@ -167,6 +167,131 @@ server.post<{ Body: CreatePartnerHourRequest, Params: { partner_id: number } }>(
     }
   );
 
+    // Upload partner logo
+    server.post<{ Params: { id: number } }>(
+        '/partners/:id/logo/',
+        {
+            schema: {
+                tags: ['Partners'],
+                consumes: ['multipart/form-data'],
+                description: 'Upload a restaurant logo image',
+                response: {
+                    200: {
+                        type: 'object',
+                        properties: {
+                            message: { type: 'string' },
+                            image_url: { type: 'string' }
+                        }
+                    }
+                }
+            },
+            preHandler: [
+                server.authenticate,
+                async (request, reply) => {
+                    const partnerId = parseInt(request.params.id as any);
+                    const userId = request.user.sub;
+                    const partner = await partnerService.findPartnerById(partnerId);
+                    
+                    if (!partner) {
+                        return reply.code(404).send({ message: 'Partner not found' });
+                    }
+                    
+                    if (partner.user_id !== userId && !request.user.roles?.includes('admin')) {
+                        return reply.code(403).send({ message: 'Unauthorized' });
+                    }
+                }
+            ]
+        },
+        async (request, reply) => {
+            const data = await request.file();
+            
+            if (!data) {
+                return reply.code(400).send({ message: 'No file uploaded' });
+            }
+            
+            // Validate file type
+            const allowedTypes = ['image/jpeg', 'image/png', 'image/jpg', 'image/webp'];
+            if (!allowedTypes.includes(data.mimetype)) {
+                return reply.code(400).send({ 
+                    message: 'Invalid file type. Only JPEG, PNG, and WebP images are allowed.' 
+                });
+            }
+
+            const imageUrl = await partnerService.savePartnerLogo(
+                parseInt(request.params.id as any),
+                data.filename,
+                await data.toBuffer()
+            );
+            
+            return reply.code(200).send({
+                message: 'Logo uploaded successfully',
+                image_url: imageUrl
+            });
+        }
+    );
+    
+    server.post<{ Params: { id: number } }>(
+        '/partners/:id/banner/',
+        {
+            schema: {
+                tags: ['Partners'],
+                consumes: ['multipart/form-data'],
+                description: 'Upload a restaurant banner image',
+                response: {
+                    200: {
+                        type: 'object',
+                        properties: {
+                            message: { type: 'string' },
+                            image_url: { type: 'string' }
+                        }
+                    }
+                }
+            },
+            preHandler: [
+                server.authenticate,
+                async (request, reply) => {
+                    const partnerId = parseInt(request.params.id as any);
+                    const userId = request.user.sub;
+                    const partner = await partnerService.findPartnerById(partnerId);
+                    
+                    if (!partner) {
+                        return reply.code(404).send({ message: 'Partner not found' });
+                    }
+                    
+                    if (partner.user_id !== userId && !request.user.roles?.includes('admin')) {
+                        return reply.code(403).send({ message: 'Unauthorized' });
+                    }
+                }
+            ]
+        },
+        async (request, reply) => {
+            const data = await request.file();
+            
+            if (!data) {
+                return reply.code(400).send({ message: 'No file uploaded' });
+            }
+            
+            const allowedTypes = ['image/jpeg', 'image/png', 'image/jpg', 'image/webp'];
+            if (!allowedTypes.includes(data.mimetype)) {
+                return reply.code(400).send({ 
+                    message: 'Invalid file type. Only JPEG, PNG, and WebP images are allowed.' 
+                });
+            }
+            
+            // Save file and get URL
+            const imageUrl = await partnerService.savePartnerBanner(
+                parseInt(request.params.id as any),
+                data.filename,
+                await data.toBuffer()
+            );
+            
+            return reply.code(200).send({
+                message: 'Banner uploaded successfully',
+                image_url: imageUrl
+            });
+        }
+    );
+
     server.get<{ Querystring: PartnerFilter }>('/partners/', {
         schema: {
             querystring: PartnerFilterSchema, tags: ['Partners']

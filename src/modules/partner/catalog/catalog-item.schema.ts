@@ -23,6 +23,10 @@ export const ItemSchema = Type.Object({
     description: 'Price of the item in the smallest currency unit (e.g. cents)',
     examples: [1299, 899, 599]
   }),
+  index: Type.Number({ 
+    description: 'Display order of the item within the category',
+    examples: [0, 1, 2]
+  }),
   image_url: Type.Optional(Type.String({ 
     description: 'URL to the item\'s image',
     examples: ['https://example.com/images/margherita.jpg']
@@ -87,6 +91,10 @@ export const UpdateItemSchema = Type.Object({
   image_url: Type.Optional(Type.String({
     description: 'Updated URL to the item\'s image',
     examples: ['https://example.com/images/updated-item.jpg'],
+  })),
+  index: Type.Optional(Type.Number({
+    description: 'Updated display order of the item within the category',
+    examples: [0, 1, 2]
   })),
 //   is_available: Type.Optional(Type.Boolean())
 }, {
