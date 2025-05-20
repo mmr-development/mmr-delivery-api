@@ -50,6 +50,8 @@ export function createPartnerService(db: Kysely<Database>): PartnerService {
                 .leftJoin('country as co', 'c.country_id', 'co.id')
                 .leftJoin('street as s', 'a.street_id', 's.id');
 
+            baseQuery = baseQuery.where('p.status', '=', 'approved');
+
             // Apply filters
             if (cityIds.length > 0) {
                 baseQuery = baseQuery.where('c.id', 'in', cityIds);
@@ -168,8 +170,8 @@ export function createPartnerService(db: Kysely<Database>): PartnerService {
             const filePath = path.join(partnerDir, filename);
             await fs.writeFile(filePath, fileBuffer);
 
-            // Update partner record in database with logo URL - add /public prefix
-            const imageUrl = `/public/uploads/partners/${partnerId}/${filename}`;
+            // Update partner record in database with logo URL
+            const imageUrl = `/uploads/partners/${partnerId}/${filename}`;
             await db.updateTable('partner')
                 .set({ logo_url: imageUrl })
                 .where('id', '=', partnerId)
@@ -196,8 +198,8 @@ export function createPartnerService(db: Kysely<Database>): PartnerService {
             const filePath = path.join(partnerDir, filename);
             await fs.writeFile(filePath, fileBuffer);
 
-            // Update partner record in database with banner URL - add /public prefix
-            const imageUrl = `/public/uploads/partners/${partnerId}/${filename}`;
+            // Update partner record in database with banner URL
+            const imageUrl = `/uploads/partners/${partnerId}/${filename}`;
             await db.updateTable('partner')
                 .set({ banner_url: imageUrl })
                 .where('id', '=', partnerId)
