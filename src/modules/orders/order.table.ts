@@ -57,7 +57,7 @@ export type AddressInfo = {
 export type OrderItemInfo = {
     catalog_item_id: number;
     quantity: number;
-    item_note: string | null;
+    note: string | null;
     price: number;
     item_name: string;
 };

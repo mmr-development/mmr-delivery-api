@@ -4,114 +4,20 @@ import { DeliveryMessage } from './delivery.types';
 
 export const deliveryWebsocketPlugin: (deliveryService: DeliveryService) => FastifyPluginAsync =
   (deliveryService) => async (fastify) => {
-    // WebSocket endpoint for couriers to connect
     fastify.get('/ws/courier/delivery', { 
       websocket: true,
-      preHandler: [fastify.authenticate] // Use Fastify's JWT authentication
+      preHandler: [fastify.authenticate]
     }, (connection, request) => {
-      // In Fastify WebSocket, connection is the WebSocket object
       const socket = connection;
-      let authenticated = false;
-      let courierId = null;
+      let courierId: string | null = null;
 
-      // First try to get user from request.user (from JWT authentication)
       if (request.user && request.user.sub) {
-        authenticated = true;
         courierId = request.user.sub;
         fastify.log.info(`Courier authenticated via JWT: ${courierId}`);
         completeAuthentication();
         return;
-      } 
-      
-      // If not found in user.sub, try user.id
-      if (request.user && request.user.id) {
-        authenticated = true;
-        courierId = request.user.id;
-        fastify.log.info(`Courier authenticated via JWT id: ${courierId}`);
-        completeAuthentication();
-        return;
       }
 
-      // Fallback to manual authentication methods
-      try {
-        // Try to authenticate from the Authorization header
-        const authHeader = request.headers.authorization;
-        if (authHeader && authHeader.startsWith('Bearer ')) {
-          const token = authHeader.substring(7);
-          try {
-            const decoded = fastify.jwt.verify(token);
-            if (decoded && (decoded.sub || decoded.id)) {
-              authenticated = true;
-              courierId = decoded.sub || decoded.id;
-              fastify.log.info(`Courier authenticated via header token: ${courierId}`);
-              completeAuthentication();
-              return;
-            }
-          } catch (err) {
-            fastify.log.warn('Invalid token in Authorization header');
-          }
-        }
-      } catch (error) {
-        fastify.log.error('Error processing authentication header', error);
-      }
-      
-      // If still not authenticated, wait for a token message
-      if (!authenticated) {
-        fastify.log.info('Waiting for authentication message');
-        
-        const authTimeout = setTimeout(() => {
-          if (!authenticated) {
-            socket.send(JSON.stringify({
-              type: 'error',
-              payload: { message: 'Authentication timeout - please send token' },
-              timestamp: new Date().toISOString()
-            }));
-            socket.close();
-          }
-        }, 10000); // 10 second timeout for authentication
-        
-        // Handle the first message as potential authentication
-        const handleAuth = (data) => {
-          try {
-            const message = JSON.parse(data.toString());
-            
-            if (message.type === 'authorization' && message.token) {
-              clearTimeout(authTimeout);
-              
-              try {
-                const decoded = fastify.jwt.verify(message.token);
-                if (decoded && (decoded.sub || decoded.id)) {
-                  authenticated = true;
-                  courierId = decoded.sub || decoded.id;
-                  
-                  // Remove this auth handler
-                  socket.removeListener('message', handleAuth);
-                  
-                  // Complete authentication
-                  fastify.log.info(`Courier authenticated via message token: ${courierId}`);
-                  completeAuthentication();
-                } else {
-                  throw new Error('Invalid token payload');
-                }
-              } catch (err) {
-                socket.send(JSON.stringify({
-                  type: 'error',
-                  payload: { message: 'Invalid token' },
-                  timestamp: new Date().toISOString()
-                }));
-                socket.close();
-              }
-            }
-          } catch (err) {
-            fastify.log.error('Error processing auth message', err);
-          }
-        };
-        
-        // Listen for auth message
-        socket.on('message', handleAuth);
-      }
-      
-      // Complete the authentication and set up regular message handlers
       async function completeAuthentication() {
         // Register courier connection
         deliveryService.registerCourierConnection(courierId, socket);
@@ -131,6 +37,8 @@ export const deliveryWebsocketPlugin: (deliveryService: DeliveryService) => Fast
         // Immediately send current active deliveries to the courier
         try {
           const activeDelivery = await deliveryService.getActiveCourierDeliveries(courierId);
+
+          console.log(activeDelivery);
           
           fastify.log.info(`Courier ${courierId} connected: sending ${activeDelivery.length} active deliveries`);
           
@@ -144,6 +52,8 @@ export const deliveryWebsocketPlugin: (deliveryService: DeliveryService) => Fast
             delivered_at: d.delivered_at?.toISOString(),
             estimated_delivery_time: d.estimated_delivery_time?.toISOString()
           }));
+
+          console.log(formattedDeliveries);
           
           socket.send(JSON.stringify({
             type: 'current_deliveries',

@@ -104,6 +104,8 @@ export function createCatalogService(db: Kysely<Database>): CatalogService {
                     'partner.delivery_fee',
                     'partner.min_order_value',
                     'partner.max_delivery_distance_km',
+                    'partner.min_preparation_time_minutes',
+                    'partner.max_preparation_time_minutes',
                     jsonArrayFrom(
                         eb.selectFrom('catalog_category')
                             .select(categoryEb => [
@@ -144,7 +146,9 @@ export function createCatalogService(db: Kysely<Database>): CatalogService {
                         phone_number: '',
                         delivery_fee: 0,
                         min_order_value: 0,
-                        max_delivery_distance_km: 0
+                        max_delivery_distance_km: 0,
+                        min_preparation_time_minutes: 0,
+                        max_preparation_time_minutes: 0
                     },
                     catalogs: []
                 };
@@ -158,7 +162,9 @@ export function createCatalogService(db: Kysely<Database>): CatalogService {
                 phone_number: catalogs[0].phone_number || '',
                 delivery_fee: Number(catalogs[0].delivery_fee) || 0,
                 min_order_value: Number(catalogs[0].min_order_value) || 0,
-                max_delivery_distance_km: Number(catalogs[0].max_delivery_distance_km) || 0
+                max_delivery_distance_km: Number(catalogs[0].max_delivery_distance_km) || 0,
+                min_preparation_time_minutes: Number(catalogs[0].min_preparation_time_minutes) || 0,
+                max_preparation_time_minutes: Number(catalogs[0].max_preparation_time_minutes) || 0
             };
 
             // Map catalogs without partner info

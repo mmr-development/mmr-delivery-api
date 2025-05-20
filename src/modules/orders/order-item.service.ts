@@ -20,7 +20,7 @@ export class OrderItemService {
     
     // Calculate total amount
     const itemsTotal = processedItems.reduce(
-      (sum, item) => sum + (item.price * item.quantity), 
+      (sum, item) => sum + (item.price? item.price * item.quantity: 0), 
       0
     );
     
@@ -31,6 +31,7 @@ export class OrderItemService {
   }
 
   async createOrderItems(orderId: number, items: OrderItem[]): Promise<void> {
+    console.log('Creating order items:', items);
     const insertableItems = items.map(item => ({
       order_id: orderId,
       catalog_item_id: item.catalog_item_id,

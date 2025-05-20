@@ -448,10 +448,10 @@ export const createDeliveryService = (
                 partner.latitude, 
                 partner.longitude, 
                 location.lat, 
-                location.lng
+                location.lng,
               );
               console.log(`Distance from partner to courier ${courierId}: ${distance} km`);
-              if (distance < shortestDistance) {
+              if (distance < shortestDistance && distance < partner.max_delivery_distance_km) {
                 shortestDistance = distance;
                 bestCourier = idleCouriers.find(c => c.courier_id === courierId) || bestCourier;
               }
@@ -529,7 +529,7 @@ export const createDeliveryService = (
         const orders = await deliveryRepository.findOrdersReadyForDelivery(5);
         
         for (const order of orders) {
-          await this.assignDeliveryAutomatically(order.id);
+          await this.forceAssignDelivery(order.id);
         }
       } catch (error) {
         console.error('Error in assignPendingDeliveries:', error);

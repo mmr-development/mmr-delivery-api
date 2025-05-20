@@ -271,7 +271,7 @@ server.post<{ Body: CreatePartnerHourRequest, Params: { partner_id: number } }>(
                 return reply.code(400).send({ message: 'No file uploaded' });
             }
             
-            const allowedTypes = ['image/jpeg', 'image/png', 'image/jpg', 'image/webp'];
+            const allowedTypes = ['image/jpeg', 'image/png', 'image/jpg', 'image/webp', 'image/avif'];
             if (!allowedTypes.includes(data.mimetype)) {
                 return reply.code(400).send({ 
                     message: 'Invalid file type. Only JPEG, PNG, and WebP images are allowed.' 

@@ -13,7 +13,9 @@ export const PartnerInfoSchema = Type.Object({
   phone_number: Type.String({ description: 'Contact phone number for the partner' }),
   delivery_fee: Type.Number({ description: 'Base delivery fee charged by this partner' }),
   min_order_value: Type.Number({ description: 'Minimum order amount required' }),
-  max_delivery_distance_km: Type.Number({ description: 'Maximum distance for delivery in kilometers' })
+  max_delivery_distance_km: Type.Number({ description: 'Maximum distance for delivery in kilometers' }),
+  min_preparation_time_minutes: Type.Number({ description: 'Minimum preparation time for orders in minutes' }),
+  max_preparation_time_minutes: Type.Number({ description: 'Maximum preparation time for orders in minutes' }),
 }, {
   description: 'Information about the partner restaurant'
 });

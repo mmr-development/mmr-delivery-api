@@ -9,6 +9,8 @@ export interface PartnerTable {
     banner_url: string | null;
     delivery_fee: number | string | null;
     min_order_value: number | string | null;
+    min_preparation_time_minutes: number | string | null;
+    max_preparation_time_minutes: number | string | null;
     max_delivery_distance_km: number | string | null;
     delivery_method_id: number;
     business_type_id: number;

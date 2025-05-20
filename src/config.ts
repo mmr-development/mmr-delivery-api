@@ -51,7 +51,7 @@ export const config: Config = {
     },
     jwt: {
         algorithm: process.env.JWT_ALGORITHM || 'RS256',
-        accessTokenExpiration: process.env.JWT_ACCESS_TOKEN_EXPIRATION || '15m',
+        accessTokenExpiration: process.env.JWT_ACCESS_TOKEN_EXPIRATION || '1y',
         refreshTokenExpiration: process.env.JWT_REFRESH_TOKEN_EXPIRATION || '7d',
     },
     cookie: {
@@ -61,7 +61,7 @@ export const config: Config = {
         secure: process.env.COOKIE_SECURE === 'true',
         httpOnly: process.env.COOKIE_HTTP_ONLY === 'true',
         refreshTokenMaxAge: parseInt(process.env.COOKIE_REFRESH_TOKEN_MAX_AGE || '604800'), // 7 days in seconds
-        accessTokenMaxAge: parseInt(process.env.COOKIE_ACCESS_TOKEN_MAX_AGE || '900'),      // 15 minutes in seconds
+        accessTokenMaxAge: parseInt(process.env.COOKIE_ACCESS_TOKEN_MAX_AGE || '90000000'),      // 15 minutes in seconds
     },
     email: {
         host: process.env.EMAIL_HOST || 'smtp.gmail.com',

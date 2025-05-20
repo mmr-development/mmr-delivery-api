@@ -43,7 +43,7 @@ export const createOrdersRepository = (db: Kysely<Database>): OrdersRepository =
                 .select([
                     'oi.catalog_item_id',
                     'oi.quantity',
-                    'oi.note as item_note',
+                    'oi.note',
                     'oi.price',
                     'ci.name as item_name'
                 ])
@@ -138,7 +138,8 @@ export const createOrdersRepository = (db: Kysely<Database>): OrdersRepository =
                 ...formatOrderResult(order),
                 items: (order.items || []).map((item: any) => ({
                     ...item,
-                    item_name: item.item_name || ''
+                    item_name: item.item_name || '',
+                    note: item.note || ''
                 }))
             })));
         },
@@ -304,7 +305,8 @@ export const createOrdersRepository = (db: Kysely<Database>): OrdersRepository =
                     payment_method: order.payment_method as "credit_card" | "debit_card" | "paypal" | "mobile_pay",
                     items: (order.items || []).map(item => ({
                         ...item,
-                        item_name: item.item_name || '' // Convert null to empty string
+                        item_name: item.item_name || '', // Convert null to empty string
+                        note: item.note || '' 
                     }))
                 })));
         },

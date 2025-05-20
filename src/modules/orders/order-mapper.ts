@@ -7,7 +7,7 @@ export function mapOrderRowToDetails(row: OrderWithDetailsRow): OrderDetails {
     ? row.items.map(item => ({
         catalog_item_id: item.catalog_item_id,
         quantity: item.quantity,
-        note: item.item_note || undefined,
+        note: item.note || undefined,
         price: item.price,
         name: item.item_name
       }))

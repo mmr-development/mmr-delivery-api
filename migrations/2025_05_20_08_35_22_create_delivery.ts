@@ -22,17 +22,20 @@ export async function up(db: Kysely<any>): Promise<void> {
         .addColumn('picked_up_at', 'timestamp')
         .addColumn('delivered_at', 'timestamp')
         .addColumn('estimated_delivery_time', 'timestamp')
+        .addColumn('pickup_lat', 'decimal')
+        .addColumn('pickup_lng', 'decimal')
+        .addColumn('delivery_lat', 'decimal')
+        .addColumn('delivery_lng', 'decimal')
         .addColumn('created_at', 'timestamp', col => col.notNull().defaultTo(sql`now()`))
         .addColumn('updated_at', 'timestamp', col => col.notNull().defaultTo(sql`now()`))
         .execute();
-        
+
     await db.schema.createTable('courier_location')
         .addColumn('id', 'serial', col => col.primaryKey())
         .addColumn('courier_id', 'uuid', col => col.notNull().references('user.id').onDelete('cascade'))
         .addColumn('latitude', 'decimal', col => col.notNull())
         .addColumn('longitude', 'decimal', col => col.notNull())
         .addColumn('timestamp', 'timestamp', col => col.notNull().defaultTo(sql`now()`))
-        // .addIndex('idx_courier_location_courier_id', ['courier_id'])
         .execute();
 }
 

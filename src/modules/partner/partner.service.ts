@@ -85,6 +85,8 @@ export function createPartnerService(db: Kysely<Database>): PartnerService {
                     'p.delivery_fee',
                     'p.min_order_value',
                     'p.max_delivery_distance_km',
+                    'p.min_preparation_time_minutes',
+                    'p.max_preparation_time_minutes',
                     'p.status',
                     'p.phone_number',
                     'bt.name as business_type_name',
@@ -108,7 +110,9 @@ export function createPartnerService(db: Kysely<Database>): PartnerService {
                 delivery: {
                     fee: partner.delivery_fee,
                     min_order_value: partner.min_order_value,
-                    max_distance_km: partner.max_delivery_distance_km
+                    max_distance_km: partner.max_delivery_distance_km,
+                    min_preparation_time_minutes: partner.min_preparation_time_minutes,
+                    max_preparation_time_minutes: partner.max_preparation_time_minutes,
                 },
                 business_type: {
                     id: partner.business_type_id || 0,

@@ -252,7 +252,9 @@ export const PartnerProperties = {
   delivery: Type.Object({
     fee: Type.Number(),
     min_order_value: Type.Number(),
-    max_distance_km: Type.Number()
+    max_distance_km: Type.Number(),
+    min_preparation_time_minutes: Type.Number(),
+    max_preparation_time_minutes: Type.Number()
   }),
   business_type: Type.Object({
     id: Type.Number(),

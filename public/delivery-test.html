@@ -265,12 +265,14 @@
         
         // Connect with token
         document.getElementById('connect-btn').addEventListener('click', () => {
-            const jwtInput = document.getElementById('jwt').value.trim();
+            let jwtInput = document.getElementById('jwt').value.trim();
             
             if (!jwtInput) {
-                logMessage('Error', 'Please enter a JWT token', 'error');
-                return;
+                jwtInput = localStorage.getItem('jwt') || '';
             }
+
+            localStorage.setItem('jwt', jwtInput);
+            
             
             token = jwtInput;
             logMessage('System', 'Token accepted', 'incoming');
@@ -560,28 +562,28 @@
         });
         
         // Clear message log
-        document.getElementById('clear-log-btn').addEventListener('click', () => {
-            messageLog.innerHTML = '';
-        });
+        // document.getElementById('clear-log-btn').addEventListener('click', () => {
+        //     messageLog.innerHTML = '';
+        // });
         
-        // Fetch and display courier's deliveries
-        async function refreshDeliveries() {
-            if (!token) return;
+        // // Fetch and display courier's deliveries
+        // async function refreshDeliveries() {
+        //     if (!token) return;
             
-            try {
-                const response = await fetch(`${API_URL}/courier/deliveries`, {
-                    headers: { 'Authorization': `Bearer ${token}` }
-                });
+        //     try {
+        //         const response = await fetch(`${API_URL}/courier/deliveries`, {
+        //             headers: { 'Authorization': `Bearer ${token}` }
+        //         });
                 
-                if (!response.ok) throw new Error('Failed to fetch deliveries');
+        //         if (!response.ok) throw new Error('Failed to fetch deliveries');
                 
-                const deliveries = await response.json();
-                displayDeliveries(deliveries);
+        //         const deliveries = await response.json();
+        //         displayDeliveries(deliveries);
                 
-            } catch (error) {
-                logMessage('Error', `Failed to fetch deliveries: ${error.message}`, 'error');
-            }
-        }
+        //     } catch (error) {
+        //         logMessage('Error', `Failed to fetch deliveries: ${error.message}`, 'error');
+        //     }
+        // }
         
         // Display deliveries received from WebSocket or HTTP API
         function displayDeliveries(deliveries) {
