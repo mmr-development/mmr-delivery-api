@@ -46,3 +46,27 @@ export function mapOrderRowToDetails(row: OrderWithDetailsRow): OrderDetails {
     updated_at: row.updated_at,
   };
 }
+
+export function mapOrderRowsFromPartnerQuery(rows: any[]) {
+  return rows.map(row => mapOrderRowFromPartnerQuery(row));
+}
+export function mapOrderRowFromPartnerQuery(row: any) {
+  return {
+    id: row.id,
+    partner_id: row.partner_id,
+    customer_id: row.customer_id,
+    status: row.status,
+    delivery_type: row.delivery_type,
+    requested_delivery_time: row.requested_delivery_time,
+    total_amount: Number(row.total_amount),
+    tip_amount: Number(row.tip_amount),
+    note: row.note || undefined,
+    created_at: row.created_at,
+    updated_at: row.updated_at,
+    items: row.items.map((item: any) => ({
+      quantity: item.quantity,
+      note: item.note || undefined,
+      name: item.name,
+    })),
+  };
+}

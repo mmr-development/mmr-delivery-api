@@ -67,6 +67,7 @@ import {
 } from './modules/time-entry';
 import { courierController, createCourierService, createCourierRepository } from './modules/employees/couriers';
 import { createRoleRepository, createRoleService, roleController } from './modules/role';
+import { partnerWebsocketPlugin } from './modules/partner/partner.ws';
 
 
 export interface AppOptions {
@@ -314,6 +315,20 @@ export async function buildApp(fastify: FastifyInstance, opts: AppOptions) {
         roleService: createRoleService(createRoleRepository(db)),
         prefix: '/v1',
     })
+
+    fastify.register(
+        partnerWebsocketPlugin(
+            createOrderService(
+                createOrdersRepository(db),
+                createUserService(createUserRepository(db), createUserRoleService(createUserRoleRepository(db))),
+                createAddressService(createAddressRepository(db)),
+                createCustomerService(createCustomerRepository(db)),
+                createPaymentService(createPaymentRepository(db)),
+                createCatalogService(db),
+                createPartnerService(db)
+            )
+        )
+    )
 
     fastify.register(orderWebsocketPlugin(createOrderService(createOrdersRepository(db), createUserService(createUserRepository(db), createUserRoleService(createUserRoleRepository(db))), createAddressService(createAddressRepository(db)), createCustomerService(createCustomerRepository(db)), createPaymentService(createPaymentRepository(db)), createCatalogService(db), createPartnerService(db))));
     return fastify;

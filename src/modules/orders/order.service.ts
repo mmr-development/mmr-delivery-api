@@ -8,10 +8,11 @@ import { CatalogService } from '../partner/catalog';
 import { PartnerService } from '../partner/partner.service';
 import { ControllerError } from '../../utils/errors';
 import { broadcastOrderStatusUpdate } from './order.ws';
-import { mapOrderRowToDetails } from './order-mapper';
+import { mapOrderRowFromPartnerQuery, mapOrderRowsFromPartnerQuery, mapOrderRowToDetails } from './order-mapper';
 import { OrderItemService } from './order-item.service';
 import { CustomerAdapter } from './customer.adapter';
 import { DeliveryService } from '../delivery/delivery.service';
+import { broadcastPartnerMessage } from '../partner/partner.ws';
 
 // Simplified interface
 interface OrderUpdateData {
@@ -29,6 +30,7 @@ export interface OrderService {
   }>;
   findOrderById(orderId: number): Promise<OrderDetails | null>;
   updateOrder(orderId: number, orderData: OrderUpdateData): Promise<OrderDetails>;
+  findOrdersByPartnerId(partnerId: number): Promise<any | null>;
 }
 
 export function createOrderService(
@@ -78,6 +80,13 @@ export function createOrderService(
           payment_method: order.payment.method
         })
       ]);
+
+      broadcastPartnerMessage(partner.id, {
+        type: 'order_created',
+        data: {
+          order: createdOrder
+        }
+      });
       
       return {
         message: "Order created successfully",
@@ -110,6 +119,14 @@ export function createOrderService(
         return null;
       }
     },
+
+    findOrdersByPartnerId: async (partnerId: number) => {
+      const orders = await ordersRepository.findOrdersByPartnerId(partnerId);
+      if (!orders) {
+        throw new ControllerError(404, 'OrderNotFound', 'Order not found');
+      }
+      return mapOrderRowsFromPartnerQuery(orders);
+    },
     
     async updateOrder(orderId: number, orderData: OrderUpdateData) {
       // Save previous status to check for status changes
@@ -129,6 +146,16 @@ export function createOrderService(
         }),
         orderData.status ? broadcastOrderStatusUpdate(orderId, orderData.status) : Promise.resolve()
       ]);
+
+
+      if (updatedOrder && orderData.status && ['confirmed', 'ready', 'preparing'].includes(orderData.status)) {
+        broadcastPartnerMessage(updatedOrder.partner_id, {
+          type: 'order_status_updated',
+          data: {
+            order: updatedOrder,
+          }
+        });
+      }
       
       // Check status change cases that need special handling
       if (deliveryService) {

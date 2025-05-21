@@ -12,7 +12,7 @@ export const deliveryTaskPlugin: (deliveryService: DeliveryService) => FastifyPl
       } catch (error) {
         fastify.log.error('Error running delivery assignment task:', error);
       }
-    }, 120000); // 2 minutes
+    }, 20000); // 2 minutes
 
     // Run connection health check every 60 seconds to clean stale connections
     const connectionCheckInterval = setInterval(() => {

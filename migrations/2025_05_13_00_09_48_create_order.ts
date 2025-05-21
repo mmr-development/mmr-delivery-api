@@ -11,8 +11,7 @@ export async function up(db: Kysely<any>): Promise<void> {
             'dispatched',
             'delivered',
             'cancelled',
-            'failed',
-            'refunded'
+            'failed'
         ])
         .execute();
 
@@ -31,6 +30,7 @@ export async function up(db: Kysely<any>): Promise<void> {
         .addColumn('total_amount', 'decimal', (col) => col.notNull())
         .addColumn('tip_amount', 'decimal', (col) => col.defaultTo(0))
         .addColumn('note', 'text', (col) => col.defaultTo(null))
+        .addColumn('address_id', 'integer', (col) => col.notNull().references('address.id').onDelete('cascade'))
         .addColumn('created_at', 'timestamp', (col) => col.notNull().defaultTo(sql`now()`))
         .addColumn('updated_at', 'timestamp', (col) => col.notNull().defaultTo(sql`now()`))
         .execute();

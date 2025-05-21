@@ -32,6 +32,7 @@ export interface OrdersRepository {
     findOrdersReadyForDelivery(): Promise<OrderRow[]>;
     getOrderAddressDetails(orderId: number): Promise<any>;
     getPartnerById(partnerId: number): Promise<any>;
+    findOrdersByPartnerId(partnerId: number): Promise<OrderRow[]>;
 }
 
 export const createOrdersRepository = (db: Kysely<Database>): OrdersRepository => {
@@ -420,6 +421,36 @@ export const createOrdersRepository = (db: Kysely<Database>): OrdersRepository =
               ])
               .where('p.id', '=', partnerId)
               .executeTakeFirst();
-          }
+          },
+            findOrdersByPartnerId: async (partnerId: number): Promise<any[]> => {
+                const orders = await sql`
+                SELECT
+  o.id,
+  o.partner_id,
+  o.status,
+  o.delivery_type,
+  o.requested_delivery_time,
+  o.note,
+  (
+    SELECT json_agg(
+      json_build_object(
+        'quantity', oi.quantity,
+        'price', oi.price,
+        'note', oi.note,
+        'name', ci.name,
+        'description', ci.description
+      )
+    )
+    FROM order_item oi
+    INNER JOIN catalog_item ci ON oi.catalog_item_id = ci.id
+    WHERE oi.order_id = o.id
+  ) AS items
+FROM "order" o
+WHERE o.partner_id = ${partnerId}
+  AND o.status IN ('pending', 'confirmed', 'preparing', 'ready');
+                `.execute(db)
+                console.log('Orders from partner:', orders);
+                return orders.rows;
+            }
     };
 };
