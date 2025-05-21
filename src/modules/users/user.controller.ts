@@ -8,7 +8,7 @@ export interface UserControllerOptions {
 }
 
 export const userController: FastifyPluginAsync<UserControllerOptions> = async function (server, { userService }) {
-    server.withTypeProvider<TypeBoxTypeProvider>().get('/users/', { schema: { ...getAllUsersSchema }, preHandler: [server.authenticate, server.guard.role('admin')] }, async (request, reply) => {
+    server.withTypeProvider<TypeBoxTypeProvider>().get('/users/', { schema: { ...getAllUsersSchema }, preHandler: [server.authenticate, server.guard.role('admin', 'support')] }, async (request, reply) => {
         const query = request.query;
         try {
             const { users, count } = await userService.findAllUsers(query);
@@ -26,7 +26,7 @@ export const userController: FastifyPluginAsync<UserControllerOptions> = async f
         }
     });
 
-    server.withTypeProvider<TypeBoxTypeProvider>().get<{ Params: { user_id: string } }>('/users/:user_id/', { schema: { ...getUserByIdSchema }, preHandler: [server.authenticate, server.guard.role('admin')] }, async (request, reply) => {
+    server.withTypeProvider<TypeBoxTypeProvider>().get<{ Params: { user_id: string } }>('/users/:user_id/', { schema: { ...getUserByIdSchema }, preHandler: [server.authenticate, server.guard.role('admin', 'support')] }, async (request, reply) => {
         const user = await userService.findUserById(request.params.user_id);
 
         if (!user) {
@@ -49,33 +49,63 @@ export const userController: FastifyPluginAsync<UserControllerOptions> = async f
         return reply.code(200).send(data);
     })
 
-     server.withTypeProvider<TypeBoxTypeProvider>().get('/users/profile/', { 
-        schema: { 
-            tags: ['Users'],}, 
+    server.withTypeProvider<TypeBoxTypeProvider>().get('/users/profile/', {
+        schema: {
+            tags: ['Users'],
+        },
         preHandler: [server.authenticate]
     }, async (request, reply) => {
         try {
             // Get the authenticated user's ID from the request
             const userId = request.user.sub;
-            
+
             // Fetch the user profile using the UserService
             const user = await userService.findUserById(userId);
-            
+
             if (!user) {
-                return reply.code(404).send({ 
+                return reply.code(404).send({
                     message: 'User profile not found',
                     statusCode: 404
                 });
             }
-            
+
             // Return the user profile
             return reply.code(200).send(user);
         } catch (error) {
             request.log.error(error);
-            return reply.code(500).send({ 
+            return reply.code(500).send({
                 message: 'Failed to fetch user profile',
                 statusCode: 500
             });
         }
     });
+
+    server.withTypeProvider<TypeBoxTypeProvider>().post<{ Params: { user_id: string }, Body: { role_id: string } }>(
+        '/users/:user_id/roles',
+        {
+            schema: {
+                tags: ['Users'],
+                summary: 'Assign a role to a user',
+                body: {
+                    type: 'object',
+                    properties: {
+                        role_id: { type: 'string' }
+                    },
+                    required: ['role_id']
+                }
+            },
+            preHandler: [server.authenticate, server.guard.role('admin')]
+        },
+        async (request, reply) => {
+            const { user_id } = request.params;
+            const { role_id } = request.body;
+            try {
+                await userService.assignRoleToUser(user_id, role_id);
+                return reply.code(204).send();
+            } catch (error) {
+                request.log.error(error);
+                return reply.code(500).send({ message: 'Failed to assign role' });
+            }
+        }
+    );
 }

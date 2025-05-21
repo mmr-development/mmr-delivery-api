@@ -415,7 +415,8 @@ export const createOrdersRepository = (db: Kysely<Database>): OrdersRepository =
                 'pc.code as postal_code',
                 'a.address_detail',
                 'a.latitude',
-                'a.longitude'
+                'a.longitude',
+                'p.max_delivery_distance_km',
               ])
               .where('p.id', '=', partnerId)
               .executeTakeFirst();

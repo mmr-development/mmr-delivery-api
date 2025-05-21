@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -11,17 +12,24 @@
             margin: 0 auto;
             padding: 20px;
         }
+
         .form-group {
             margin-bottom: 15px;
         }
+
         label {
             display: block;
             margin-bottom: 5px;
         }
-        input, button, select, textarea {
+
+        input,
+        button,
+        select,
+        textarea {
             padding: 8px;
             width: 100%;
         }
+
         button {
             background: #4CAF50;
             color: white;
@@ -29,15 +37,19 @@
             border: none;
             margin-top: 5px;
         }
+
         button:hover {
             background: #45a049;
         }
+
         button.secondary {
             background: #2196F3;
         }
+
         button.danger {
             background: #f44336;
         }
+
         .message-log {
             height: 300px;
             overflow-y: auto;
@@ -46,37 +58,46 @@
             border: 1px solid #ddd;
             margin-top: 20px;
         }
+
         .message {
             margin-bottom: 8px;
             padding: 8px;
             border-radius: 4px;
         }
+
         .message.incoming {
             background: #e3f2fd;
         }
+
         .message.outgoing {
             background: #e8f5e9;
         }
+
         .message.error {
             background: #ffebee;
         }
+
         .hidden {
             display: none;
         }
+
         .delivery-card {
             border: 1px solid #ddd;
             padding: 15px;
             margin-bottom: 15px;
         }
+
         .actions {
             display: flex;
             gap: 10px;
             margin-top: 10px;
         }
+
         .actions button {
             flex: 1;
             width: auto;
         }
+
         .status-badge {
             display: inline-block;
             padding: 3px 8px;
@@ -84,91 +105,110 @@
             color: white;
             background: #888;
         }
-        .status-assigned { background: #ff9800; }
-        .status-picked_up { background: #2196F3; }
-        .status-in_transit { background: #9c27b0; }
-        .status-delivered { background: #4CAF50; }
-        .status-failed { background: #f44336; }
-        .status-canceled { background: #795548; }
+
+        .status-assigned {
+            background: #ff9800;
+        }
+
+        .status-picked_up {
+            background: #2196F3;
+        }
+
+        .status-in_transit {
+            background: #9c27b0;
+        }
+
+        .status-delivered {
+            background: #4CAF50;
+        }
+
+        .status-failed {
+            background: #f44336;
+        }
+
+        .status-canceled {
+            background: #795548;
+        }
+
         .panel-section {
             border: 1px solid #ddd;
             padding: 15px;
             margin-bottom: 20px;
             border-radius: 4px;
         }
-        
+
         .location-details {
             background-color: #f5f5f5;
             border-radius: 4px;
             padding: 10px;
             margin-top: 10px;
         }
-        
+
         .location-title {
             font-weight: bold;
             margin-bottom: 5px;
             display: flex;
             align-items: center;
         }
-        
+
         .location-title i {
             margin-right: 5px;
         }
-        
+
         .map-link {
             color: #2196F3;
             text-decoration: none;
             margin-left: 10px;
             font-size: 0.9em;
         }
-        
+
         .map-link:hover {
             text-decoration: underline;
         }
-        
+
         .phone-link {
             color: #4CAF50;
             text-decoration: none;
         }
-        
+
         .phone-link:hover {
             text-decoration: underline;
         }
-        
+
         .location-details p {
             margin: 5px 0;
         }
-        
+
         .location-icon {
             width: 16px;
             height: 16px;
             display: inline-block;
             margin-right: 5px;
         }
-        
+
         .pickup-icon {
             color: #ff9800;
         }
-        
+
         .delivery-icon {
             color: #4CAF50;
         }
-        
+
         .order-summary {
             background-color: #f9f9f9;
             border-radius: 4px;
             padding: 10px;
             margin: 10px 0;
         }
-        
+
         .order-items {
             margin-top: 10px;
         }
-        
+
         .order-items ul {
             padding-left: 20px;
         }
-        
+
         .tip-info {
             color: #4CAF50;
             font-style: italic;
@@ -176,9 +216,10 @@
         }
     </style>
 </head>
+
 <body>
     <h1>Delivery WebSocket Test</h1>
-
+    <div id="test_1"> hello </div>
     <div id="login-section" class="panel-section">
         <h2>1. Enter JWT Token</h2>
         <div class="form-group">
@@ -187,10 +228,10 @@
         </div>
         <button id="connect-btn">Connect</button>
     </div>
-    
+
     <div id="controls-section" class="hidden panel-section">
         <h2>2. Courier Controls</h2>
-        
+
         <div class="form-group" id="clock-controls">
             <h3>Time Clock</h3>
             <div id="clock-status">Current status: Unknown</div>
@@ -200,7 +241,7 @@
                 <button id="check-status-btn" class="secondary">Check Status</button>
             </div>
         </div>
-        
+
         <div class="form-group" id="websocket-controls">
             <h3>WebSocket Connection</h3>
             <div id="ws-status">Status: Disconnected</div>
@@ -218,22 +259,22 @@
         </div>
         <button id="refresh-deliveries-btn" class="secondary">Refresh Deliveries</button>
     </div>
-    
+
     <div class="panel-section">
         <h2>4. Message Log</h2>
         <div id="message-log" class="message-log"></div>
         <button id="clear-log-btn" class="danger">Clear Log</button>
     </div>
-    
+
     <script>
         // Configuration - use port 8080
         const API_URL = window.location.hostname === 'localhost' ? 'http://localhost:8080/v1' : '/v1';
         const WS_URL = window.location.hostname === 'localhost' ? 'wss://localhost:8080' : 'wss://' + window.location.host;
-        
+
         // State
         let token = null;
         let ws = null;
-        
+
         // Define valid status transitions - matching backend logic
         const validStatusTransitions = {
             'assigned': ['picked_up', 'failed', 'canceled'],
@@ -243,7 +284,7 @@
             'failed': [],    // Terminal state
             'canceled': []   // Terminal state
         };
-        
+
         // Status display names
         const statusLabels = {
             'assigned': 'Assigned',
@@ -262,46 +303,43 @@
         const wsStatus = document.getElementById('ws-status');
         const clockStatus = document.getElementById('clock-status');
         const deliveriesList = document.getElementById('deliveries-list');
-        
+
         // Connect with token
         document.getElementById('connect-btn').addEventListener('click', () => {
             let jwtInput = document.getElementById('jwt').value.trim();
-            
+
             if (!jwtInput) {
                 jwtInput = localStorage.getItem('jwt') || '';
             }
 
             localStorage.setItem('jwt', jwtInput);
-            
-            
+
+
             token = jwtInput;
             logMessage('System', 'Token accepted', 'incoming');
-            
+
             // Show next sections
             loginSection.querySelector('button').disabled = true;
             controlsSection.classList.remove('hidden');
             deliveriesSection.classList.remove('hidden');
-            
-            // Load current deliveries
-            refreshDeliveries();
         });
-        
+
         // Check courier clock status
         document.getElementById('check-status-btn').addEventListener('click', async () => {
             try {
                 const response = await fetch(`${API_URL}/courier/status`, {
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
-                
+
                 if (!response.ok) throw new Error('Failed to fetch status');
-                
+
                 const data = await response.json();
-                
+
                 clockStatus.textContent = `Current status: ${data.is_clocked_in ? 'Clocked In' : 'Clocked Out'}`;
                 clockStatus.style.color = data.is_clocked_in ? 'green' : 'red';
-                
+
                 logMessage('Status', `Courier is ${data.is_clocked_in ? 'clocked in' : 'clocked out'}`, 'incoming');
-                
+
                 if (data.active_deliveries) {
                     logMessage('Info', `You have ${data.active_deliveries} active deliveries`, 'incoming');
                 }
@@ -309,7 +347,7 @@
                 logMessage('Error', `Failed to check clock status: ${error.message}`, 'error');
             }
         });
-        
+
         // Clock In
         document.getElementById('clock-in-btn').addEventListener('click', async () => {
             try {
@@ -317,9 +355,9 @@
                     method: 'POST',
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
-                
+
                 if (!response.ok) throw new Error('Failed to clock in');
-                
+
                 const data = await response.json();
                 logMessage('System', data.message || 'Successfully clocked in', 'incoming');
                 clockStatus.textContent = 'Current status: Clocked In';
@@ -328,7 +366,7 @@
                 logMessage('Error', `Failed to clock in: ${error.message}`, 'error');
             }
         });
-        
+
         // Clock Out
         document.getElementById('clock-out-btn').addEventListener('click', async () => {
             try {
@@ -336,9 +374,9 @@
                     method: 'POST',
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
-                
+
                 if (!response.ok) throw new Error('Failed to clock out');
-                
+
                 const data = await response.json();
                 logMessage('System', data.message || 'Successfully clocked out', 'incoming');
                 clockStatus.textContent = 'Current status: Clocked Out';
@@ -347,63 +385,67 @@
                 logMessage('Error', `Failed to clock out: ${error.message}`, 'error');
             }
         });
-        
+
         // Connect WebSocket with better reconnection handling
         document.getElementById('connect-ws-btn').addEventListener('click', () => {
             if (ws) return;
             connectWebSocket();
         });
-        
+
         // Function to handle WebSocket connection with reconnect logic
         function connectWebSocket() {
             try {
                 // Include token in the WebSocket request headers
                 const wsUrl = new URL(`${WS_URL}/ws/courier/delivery`);
-                
+
                 // Create WebSocket with Authorization header
                 ws = new WebSocket(wsUrl);
-                
+
                 // When opened, set up listeners and send the bearer token
                 ws.onopen = () => {
                     wsStatus.textContent = 'Status: Connected';
                     wsStatus.style.color = 'green';
                     logMessage('System', 'WebSocket connected', 'incoming');
-                    
+
                     // Set auth header via a message to handle authentication
                     ws.send(JSON.stringify({
                         type: 'authorization',
                         token: token
                     }));
-                    
+
                     document.getElementById('connect-ws-btn').classList.add('hidden');
                     document.getElementById('disconnect-ws-btn').classList.remove('hidden');
-                    
+
                     // Start heartbeat immediately after connecting
                     sendHeartbeat();
                 };
-                
+
                 // Handle incoming messages
                 ws.onmessage = (event) => {
                     try {
                         const data = JSON.parse(event.data);
                         logMessage('Server', JSON.stringify(data, null, 2), 'incoming');
-                        
+
                         // Handle different message types
-                        switch(data.type) {
+                        switch (data.type) {
                             case 'delivery_assigned':
-                                if (data.payload && data.payload.delivery_id) {
-                                    logMessage('System', 'New delivery assigned!', 'incoming');
-                                    refreshDeliveries();
+                                if (Array.isArray(data.payload.deliveries)) {
+                                    logMessage('System', `Received ${data.payload.deliveries.length} new deliveries`, 'incoming');
+                                    displayDeliveries(data.payload.deliveries);
+                                } else {
+                                    logMessage('Error', 'Invalid delivery data received', 'error');
                                 }
                                 break;
-                                
-                            case 'current_deliveries': 
-                                if (Array.isArray(data.payload)) {
+
+                            case 'current_deliveries':
+                                console.log('Current deliveries:', data.payload.deliveries);
+                                if (Array.isArray(data.payload.deliveries)) {
                                     logMessage('System', `Received ${data.payload.length} active deliveries on connection`, 'incoming');
-                                    
+
                                     // Update the UI with the received deliveries
-                                    if (data.payload.length > 0) {
-                                        displayDeliveries(data.payload);
+                                    console.log(data.payload.deliveries.length);
+                                    if (data.payload.deliveries.length > 0) {
+                                        displayDeliveries(data.payload.deliveries);
                                     } else {
                                         deliveriesList.innerHTML = '<p>No active deliveries assigned.</p>';
                                     }
@@ -412,20 +454,21 @@
 
                             case 'location_request':
                                 logMessage('System', 'Location request received', 'incoming');
-                                
+
                                 // Get the request ID if provided
                                 const requestId = data.payload?.request_id;
-                                
+
                                 // Try to get location from browser
                                 if (navigator.geolocation) {
                                     navigator.geolocation.getCurrentPosition(
                                         (position) => {
                                             const latitude = position.coords.latitude;
                                             const longitude = position.coords.longitude;
+                                            const now = new Date().toISOString();
                                             console.log('Location:', latitude, longitude);
                                             logMessage('System', `Got location: ${latitude}, ${longitude}`, 'outgoing');
                                             logMessage('System', `Sending location back to server...`, 'outgoing');
-                                            
+                                            console.log(`[${now}] Sending location_response via ws.send...`);
                                             // Send location back to the server
                                             ws.send(JSON.stringify({
                                                 type: 'location_response',
@@ -433,16 +476,17 @@
                                                     latitude,
                                                     longitude,
                                                     accuracy: position.coords.accuracy,
-                                                    timestamp: new Date().toISOString(),
+                                                    timestamp: now,
                                                     request_id: requestId,
                                                 }
                                             }));
+                                            console.log(`[${new Date().toISOString()}] location_response sent via ws.send`);
                                             logMessage('System', `Location sent successfully`, 'outgoing');
                                         },
                                         (error) => {
                                             // Handle location error
                                             let errorMessage = 'Unknown error';
-                                            switch(error.code) {
+                                            switch (error.code) {
                                                 case error.PERMISSION_DENIED:
                                                     errorMessage = 'User denied geolocation permission';
                                                     break;
@@ -454,7 +498,7 @@
                                                     break;
                                             }
                                             logMessage('Error', `Location error: ${errorMessage}`, 'error');
-                                            
+
                                             // Send error response
                                             ws.send(JSON.stringify({
                                                 type: 'location_error',
@@ -481,13 +525,22 @@
                                     }));
                                 }
                                 break;
-                                
+
+                            case 'status_update':
+                                if (data.payload && Array.isArray(data.payload.deliveries)) {
+                                    logMessage('System', `Received updated deliveries after status change`, 'incoming');
+                                    console.log(data.payload)
+                                    displayDeliveries(data.payload.deliveries);
+                                    console.log(data.payload)
+                                }
+                                break;
+
                             case 'heartbeat_ack':
                                 // Heartbeat was acknowledged, connection is good
                                 wsStatus.textContent = 'Status: Connected (Active)';
                                 wsStatus.style.color = 'green';
                                 break;
-                            
+
                             case 'error':
                                 logMessage('Error', data.payload?.message || 'Server error', 'error');
                                 break;
@@ -496,24 +549,24 @@
                         logMessage('Error', 'Failed to parse server message', 'error');
                     }
                 };
-                
+
                 // Handle disconnect with reconnection logic
                 ws.onclose = (event) => {
                     wsStatus.textContent = 'Status: Disconnected';
                     wsStatus.style.color = 'red';
                     logMessage('System', `WebSocket disconnected (code: ${event.code})`, 'incoming');
-                    
+
                     document.getElementById('connect-ws-btn').classList.remove('hidden');
                     document.getElementById('disconnect-ws-btn').classList.add('hidden');
                     ws = null;
-                    
+
                     // Try to reconnect automatically after delay if it wasn't intentional
                     if (event.code !== 1000) { // 1000 = normal closure
                         logMessage('System', 'Attempting to reconnect in 3 seconds...', 'incoming');
                         setTimeout(connectWebSocket, 3000);
                     }
                 };
-                
+
                 // Handle errors
                 ws.onerror = (error) => {
                     logMessage('Error', 'WebSocket error', 'error');
@@ -525,7 +578,7 @@
                 setTimeout(connectWebSocket, 5000);
             }
         }
-        
+
         // Heartbeat function with more robust handling
         function sendHeartbeat() {
             if (ws && ws.readyState === WebSocket.OPEN) {
@@ -534,7 +587,7 @@
                     type: 'heartbeat',
                     timestamp: new Date().toISOString()
                 }));
-                
+
                 // Request sync every 5 heartbeats (2.5 minutes)
                 if (Math.floor(Date.now() / 30000) % 5 === 0) {
                     logMessage('System', 'Syncing deliveries...', 'outgoing');
@@ -544,196 +597,187 @@
                     }));
                 }
             }
-            
+
             // Set up next heartbeat
             setTimeout(sendHeartbeat, 30000);
         }
-        
+
         // Disconnect WebSocket
         document.getElementById('disconnect-ws-btn').addEventListener('click', () => {
             if (ws) {
                 ws.close();
             }
         });
-        
-        // Refresh deliveries list
-        document.getElementById('refresh-deliveries-btn').addEventListener('click', () => {
-            refreshDeliveries();
-        });
-        
+
+
         // Clear message log
-        // document.getElementById('clear-log-btn').addEventListener('click', () => {
-        //     messageLog.innerHTML = '';
-        // });
-        
-        // // Fetch and display courier's deliveries
+        document.getElementById('clear-log-btn').addEventListener('click', () => {
+            messageLog.innerHTML = '';
+        });
+
+        // Fetch and display courier's deliveries
         // async function refreshDeliveries() {
         //     if (!token) return;
-            
+
         //     try {
         //         const response = await fetch(`${API_URL}/courier/deliveries`, {
         //             headers: { 'Authorization': `Bearer ${token}` }
         //         });
-                
+
         //         if (!response.ok) throw new Error('Failed to fetch deliveries');
-                
+
         //         const deliveries = await response.json();
         //         displayDeliveries(deliveries);
-                
+
         //     } catch (error) {
         //         logMessage('Error', `Failed to fetch deliveries: ${error.message}`, 'error');
         //     }
         // }
-        
+
         // Display deliveries received from WebSocket or HTTP API
-        function displayDeliveries(deliveries) {
-          if (!deliveries || !deliveries.length) {
-            deliveriesList.innerHTML = '<p>No deliveries assigned yet.</p>';
-            return;
-          }
-          
-          deliveriesList.innerHTML = '';
-          deliveries.forEach(delivery => {
-            const card = document.createElement('div');
-            card.className = 'delivery-card';
-            
-            // Format dates for better display
-            const assignedDate = new Date(delivery.assigned_at).toLocaleString();
-            const estimatedDelivery = delivery.estimated_delivery_time ? 
-              new Date(delivery.estimated_delivery_time).toLocaleString() : 'Not specified';
-            const pickedUpDate = delivery.picked_up_at ? 
-              new Date(delivery.picked_up_at).toLocaleString() : null;
-            const deliveredDate = delivery.delivered_at ? 
-              new Date(delivery.delivered_at).toLocaleString() : null;
-            
-            // Get valid next statuses for this delivery
-            const validNextStatuses = validStatusTransitions[delivery.status] || [];
-            
-            // Build status dropdown options
-            let statusOptionsHtml = '';
-            
-            // Always include current status as selected (but disabled if terminal state)
-            const isTerminalState = validNextStatuses.length === 0;
-            statusOptionsHtml += `<option value="${delivery.status}" selected ${isTerminalState ? 'disabled' : ''}>${statusLabels[delivery.status]} (Current)</option>`;
-            
-            // Add valid next statuses
-            validNextStatuses.forEach(status => {
-              statusOptionsHtml += `<option value="${status}">${statusLabels[status]}</option>`;
+function displayDeliveries(deliveries) {
+    console.log(deliveries);
+    if (!deliveries || !deliveries.length) {
+        deliveriesList.innerHTML = '<p>No deliveries assigned yet.</p>';
+        return;
+    }
+    deliveriesList.innerHTML = '';
+    deliveries.forEach(delivery => {
+        const card = document.createElement('div');
+        card.className = 'delivery-card';
+
+        // Format dates for better display
+        const assignedDate = delivery.assigned_at ? new Date(delivery.assigned_at).toLocaleString() : 'Not specified';
+        const estimatedDelivery = delivery.estimated_delivery_time ?
+            new Date(delivery.estimated_delivery_time).toLocaleString() : 'Not specified';
+
+        // Get valid next statuses for this delivery
+        const validNextStatuses = validStatusTransitions[delivery.status] || [];
+
+        // Build status dropdown options
+        let statusOptionsHtml = '';
+        const isTerminalState = validNextStatuses.length === 0;
+        statusOptionsHtml += `<option value="${delivery.status}" selected ${isTerminalState ? 'disabled' : ''}>${statusLabels[delivery.status]} (Current)</option>`;
+        validNextStatuses.forEach(status => {
+            statusOptionsHtml += `<option value="${status}">${statusLabels[status]}</option>`;
+        });
+
+        // Get order information 
+        const orderItems = delivery.order?.items || [];
+        const orderTotal = delivery.order?.total_amount ? parseFloat(delivery.order.total_amount) : 0;
+        const tipAmount = delivery.order?.tip_amount ? parseFloat(delivery.order.tip_amount) : 0;
+
+        // Format order items
+        let orderItemsHtml = '';
+        if (orderItems.length > 0) {
+            orderItemsHtml = '<div class="order-items"><h4>Order Items:</h4><ul>';
+            orderItems.forEach(item => {
+                orderItemsHtml += `<li>${item.quantity}x ${item.item_name} - $${parseFloat(item.price).toFixed(2)}${item.note ? `<br><small>Note: ${item.note}</small>` : ''}</li>`;
             });
-            
-            // Get order information 
-            const orderItems = delivery.order?.items || [];
-            const orderTotal = delivery.order?.total_amount || 0;
-            const tipAmount = delivery.order?.tip_amount || 0;
-            
-            // Format order items
-            let orderItemsHtml = '';
-            if (orderItems.length > 0) {
-              orderItemsHtml = '<div class="order-items"><h4>Order Items:</h4><ul>';
-              orderItems.forEach(item => {
-                orderItemsHtml += `<li>${item.quantity}x ${item.item_name} - $${item.price.toFixed(2)}${item.note ? `<br><small>Note: ${item.note}</small>` : ''}</li>`;
-              });
-              orderItemsHtml += '</ul></div>';
-            }
-            
-            // Get pickup and delivery information
-            const pickup = delivery.pickup || { name: 'Unknown Restaurant', lat: null, lng: null };
-            const deliveryInfo = delivery.delivery || { customer_name: 'Unknown Customer', phone: '', address: '', lat: null, lng: null };
-            
-            // Create Google Maps links if coordinates are available
-            const pickupMapLink = pickup.lat && pickup.lng ? 
-              `<a href="https://www.google.com/maps?q=${pickup.lat},${pickup.lng}" target="_blank" class="map-link">Open in Maps</a>` : '';
-            
-            const deliveryMapLink = deliveryInfo.lat && deliveryInfo.lng ? 
-              `<a href="https://www.google.com/maps?q=${deliveryInfo.lat},${deliveryInfo.lng}" target="_blank" class="map-link">Open in Maps</a>` : '';
-            
-            // Format phone as a clickable link
-            const phoneLink = deliveryInfo.phone ? 
-              `<a href="tel:${deliveryInfo.phone}" class="phone-link">${deliveryInfo.phone}</a>` : 'No phone number';
-            
-            // Create directions link if both coordinates are available
-            const directionsLink = (pickup.lat && pickup.lng && deliveryInfo.lat && deliveryInfo.lng) ?
-              `<a href="https://www.google.com/maps/dir/${pickup.lat},${pickup.lng}/${deliveryInfo.lat},${deliveryInfo.lng}" target="_blank" class="map-link">Get Directions</a>` : '';
-            
-            card.innerHTML = `
-              <h3>Delivery #${delivery.id} - Order #${delivery.order_id}</h3>
-              <p>
-                <span class="status-badge status-${delivery.status}">
-                  ${delivery.status.toUpperCase()}
-                </span>
-                ${directionsLink}
-              </p>
-              
-              <div class="order-summary">
-                <h4>Order Summary</h4>
-                <p><strong>Total:</strong> $${orderTotal.toFixed(2)} <span class="tip-info">(includes tip: $${tipAmount.toFixed(2)})</span></p>
-                ${orderItemsHtml}
-              </div>
-              
-              <div class="location-details">
-                <div class="location-title">
-                  <span class="location-icon pickup-icon">📍</span> Pickup: ${pickup.name || 'Unknown Restaurant'}
-                  ${pickupMapLink}
-                </div>
-                <p><strong>Coordinates:</strong> ${pickup.lat ? `${pickup.lat.toFixed(5)}, ${pickup.lng.toFixed(5)}` : 'Not available'}</p>
-              </div>
-              
-              <div class="location-details">
-                <div class="location-title">
-                  <span class="location-icon delivery-icon">🏠</span> Delivery: ${deliveryInfo.customer_name || 'Unknown Customer'}
-                  ${deliveryMapLink}
-                </div>
-                <p><strong>Phone:</strong> ${phoneLink}</p>
-                <p><strong>Address:</strong> ${deliveryInfo.address || 'Not available'}</p>
-                <p><strong>Coordinates:</strong> ${deliveryInfo.lat ? `${deliveryInfo.lat.toFixed(5)}, ${deliveryInfo.lng.toFixed(5)}` : 'Not available'}</p>
-              </div>
-              
-              <p><strong>Assigned:</strong> ${assignedDate}</p>
-              ${pickedUpDate ? `<p><strong>Picked up:</strong> ${pickedUpDate}</p>` : ''}
-              ${deliveredDate ? `<p><strong>Delivered:</strong> ${deliveredDate}</p>` : ''}
-              <p><strong>Estimated delivery:</strong> ${estimatedDelivery}</p>
-              
-              <div class="form-group">
-                <label for="status-${delivery.id}">Update Status:</label>
-                <select id="status-${delivery.id}" ${isTerminalState ? 'disabled' : ''}>
-                  ${statusOptionsHtml}
-                </select>
-                <button onclick="updateDeliveryStatus(${delivery.id})" ${isTerminalState ? 'disabled' : ''}>
-                  ${isTerminalState ? 'Terminal Status' : 'Update'}
-                </button>
-              </div>
-              ${isTerminalState ? '<p><em>This delivery is in a terminal state and cannot be updated further.</em></p>' : ''}
-            `;
-            
-            deliveriesList.appendChild(card);
-          });
+            orderItemsHtml += '</ul></div>';
         }
-        
+
+        // Get pickup and delivery information
+        const pickup = delivery.pickup || { name: 'Unknown Restaurant', lat: null, lng: null };
+        const deliveryInfo = delivery.delivery || { customer_name: 'Unknown Customer', phone: '', address: '', lat: null, lng: null };
+
+        // Create Google Maps links if coordinates are available
+        const pickupLat = pickup.lat ? parseFloat(pickup.lat) : null;
+        const pickupLng = pickup.lng ? parseFloat(pickup.lng) : null;
+        const deliveryLat = deliveryInfo.lat ? parseFloat(deliveryInfo.lat) : null;
+        const deliveryLng = deliveryInfo.lng ? parseFloat(deliveryInfo.lng) : null;
+
+        const pickupMapLink = (pickupLat && pickupLng) ?
+            `<a href="https://www.google.com/maps?q=${pickupLat},${pickupLng}" target="_blank" class="map-link">Open in Maps</a>` : '';
+
+        const deliveryMapLink = (deliveryLat && deliveryLng) ?
+            `<a href="https://www.google.com/maps?q=${deliveryLat},${deliveryLng}" target="_blank" class="map-link">Open in Maps</a>` : '';
+
+        // Format phone as a clickable link
+        const phoneLink = deliveryInfo.phone ?
+            `<a href="tel:${deliveryInfo.phone}" class="phone-link">${deliveryInfo.phone}</a>` : 'No phone number';
+
+        // Create directions link if both coordinates are available
+        const directionsLink = (pickupLat && pickupLng && deliveryLat && deliveryLng) ?
+            `<a href="https://www.google.com/maps/dir/${pickupLat},${pickupLng}/${deliveryLat},${deliveryLng}" target="_blank" class="map-link">Get Directions</a>` : '';
+
+        card.innerHTML = `
+          <h3>Delivery #${delivery.id} - Order #${delivery.order_id}</h3>
+          <p>
+            <span class="status-badge status-${delivery.status}">
+              ${delivery.status.toUpperCase()}
+            </span>
+            ${directionsLink}
+          </p>
+          
+          <div class="order-summary">
+            <h4>Order Summary</h4>
+            <p><strong>Total:</strong> $${orderTotal.toFixed(2)} <span class="tip-info">(includes tip: $${tipAmount.toFixed(2)})</span></p>
+            ${orderItemsHtml}
+          </div>
+          
+          <div class="location-details">
+            <div class="location-title">
+              <span class="location-icon pickup-icon">📍</span> Pickup: ${pickup.name || 'Unknown Restaurant'}
+              ${pickupMapLink}
+            </div>
+            <p><strong>Coordinates:</strong> ${(pickupLat && pickupLng) ? `${pickupLat.toFixed(5)}, ${pickupLng.toFixed(5)}` : 'Not available'}</p>
+          </div>
+          
+          <div class="location-details">
+            <div class="location-title">
+              <span class="location-icon delivery-icon">🏠</span> Delivery: ${deliveryInfo.customer_name || 'Unknown Customer'}
+              ${deliveryMapLink}
+            </div>
+            <p><strong>Phone:</strong> ${phoneLink}</p>
+            <p><strong>Address:</strong> ${deliveryInfo.address || 'Not available'}</p>
+            <p><strong>Coordinates:</strong> ${(deliveryLat && deliveryLng) ? `${deliveryLat.toFixed(5)}, ${deliveryLng.toFixed(5)}` : 'Not available'}</p>
+          </div>
+          
+          <p><strong>Assigned:</strong> ${assignedDate}</p>
+          <p><strong>Estimated delivery:</strong> ${estimatedDelivery}</p>
+          
+          <div class="form-group">
+            <label for="status-${delivery.id}">Update Status:</label>
+            <select id="status-${delivery.id}" ${isTerminalState ? 'disabled' : ''}>
+              ${statusOptionsHtml}
+            </select>
+            <button onclick="updateDeliveryStatus(${delivery.id})" ${isTerminalState ? 'disabled' : ''}>
+              ${isTerminalState ? 'Terminal Status' : 'Update'}
+            </button>
+          </div>
+          ${isTerminalState ? '<p><em>This delivery is in a terminal state and cannot be updated further.</em></p>' : ''}
+        `;
+
+        deliveriesList.appendChild(card);
+    });
+}
+
         // Update delivery status with optimistic updates for better user experience
-        window.updateDeliveryStatus = async function(deliveryId) {
+        window.updateDeliveryStatus = async function (deliveryId) {
             const statusSelect = document.getElementById(`status-${deliveryId}`);
             if (!statusSelect) return;
-            
+
             const newStatus = statusSelect.value;
             const oldStatus = statusSelect.querySelector('option[selected]').value;
-            
+
             try {
                 // Apply optimistic update immediately for better UX
                 const card = statusSelect.closest('.delivery-card');
                 const statusBadge = card.querySelector('.status-badge');
-                
+
                 // Update UI optimistically
                 if (statusBadge) {
                     statusBadge.className = `status-badge status-${newStatus}`;
                     statusBadge.textContent = newStatus.toUpperCase();
                 }
-                
+
                 // Show "updating" indicator
                 const updateButton = card.querySelector('button');
                 const originalText = updateButton.textContent;
                 updateButton.textContent = "Updating...";
                 updateButton.disabled = true;
-                
+
                 // If WebSocket is connected, use it for real-time updates
                 if (ws && ws.readyState === WebSocket.OPEN) {
                     ws.send(JSON.stringify({
@@ -741,7 +785,9 @@
                         delivery_id: deliveryId,
                         status: newStatus
                     }));
-                    
+
+                    console.log(`[${new Date().toISOString()}] Sent status update via WebSocket: Delivery #${deliveryId} → ${newStatus}`);
+
                     logMessage('Client', `Sent status update via WebSocket: Delivery #${deliveryId} → ${newStatus}`, 'outgoing');
                 } else {
                     // Otherwise use HTTP API
@@ -753,59 +799,56 @@
                         },
                         body: JSON.stringify({ status: newStatus })
                     });
-                    
+
                     if (!response.ok) {
                         throw new Error('Failed to update delivery status');
                     }
-                    
+
                     logMessage('Client', `Updated status via HTTP: Delivery #${deliveryId} → ${newStatus}`, 'outgoing');
                 }
-                
+
                 // Success - fully refresh to get the latest state
-                setTimeout(() => {
-                    refreshDeliveries();
-                }, 300); // Small delay to allow backend to process
-                
+
             } catch (error) {
                 // Revert optimistic update on error
                 logMessage('Error', `Failed to update delivery status: ${error.message}`, 'error');
-                
+
                 // Revert UI changes if there was an error
                 const card = statusSelect.closest('.delivery-card');
                 const statusBadge = card.querySelector('.status-badge');
-                
+
                 if (statusBadge) {
                     statusBadge.className = `status-badge status-${oldStatus}`;
                     statusBadge.textContent = oldStatus.toUpperCase();
                 }
-                
+
                 // Reset button
                 const updateButton = card.querySelector('button');
                 updateButton.textContent = "Update";
                 updateButton.disabled = false;
-                
+
                 // Show error to the user
                 alert(`Error updating status: ${error.message}`);
             }
         };
-        
+
         // Helper function to log messages
         function logMessage(sender, content, type) {
             const message = document.createElement('div');
             message.className = `message ${type}`;
-            
+
             const timestamp = new Date().toLocaleTimeString();
-            
+
             if (typeof content === 'object') {
                 content = JSON.stringify(content, null, 2);
             }
-            
+
             message.innerHTML = `<strong>${timestamp} - ${sender}:</strong> <pre>${content}</pre>`;
-            
+
             messageLog.appendChild(message);
             messageLog.scrollTop = messageLog.scrollHeight;
         }
-        
+
         // Send heartbeat periodically to keep WebSocket alive
         setInterval(() => {
             if (ws && ws.readyState === WebSocket.OPEN) {
@@ -817,4 +860,5 @@
         }, 30000);
     </script>
 </body>
+
 </html>

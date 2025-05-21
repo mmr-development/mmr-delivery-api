@@ -1,7 +1,7 @@
 import { Database } from '../../database';
 import { Kysely, sql } from 'kysely';
 import { PartnerFilter, PartnerListing } from './partner.schema';
-import { PartnerRow } from './partner.table';
+import { PartnerRow, UpdateablePartnerRow } from './partner.table';
 import * as fs from 'fs/promises';
 import * as path from 'path';
 import * as crypto from 'crypto';
@@ -12,6 +12,7 @@ export interface PartnerService {
     findPartnerById(id: number): Promise<PartnerRow | undefined>;
     savePartnerLogo(partnerId: number, originalFilename: string, fileBuffer: Buffer): Promise<string>;
     savePartnerBanner(partnerId: number, originalFilename: string, fileBuffer: Buffer): Promise<string>;
+    updatePartner(id: number, updateWith: UpdateablePartnerRow): Promise<void>;
 }
 
 export function createPartnerService(db: Kysely<Database>): PartnerService {
@@ -210,6 +211,12 @@ export function createPartnerService(db: Kysely<Database>): PartnerService {
                 .execute();
 
             return imageUrl;
+        },
+        async updatePartner(id: number, updateWith: UpdateablePartnerRow): Promise<void> {
+            await db.updateTable('partner')
+                .set(updateWith)
+                .where('id', '=', id)
+                .execute();
         }
     }
 }

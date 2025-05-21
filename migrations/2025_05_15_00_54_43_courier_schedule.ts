@@ -8,6 +8,7 @@ export async function up(db: Kysely<any>): Promise<void> {
         .addColumn('end_datetime', 'timestamp', (col) => col.notNull())
         .addColumn('status', 'varchar(50)', (col) => col.notNull().defaultTo('scheduled')
             .check(sql`status IN ('scheduled', 'confirmed', 'completed', 'canceled')`))
+        .addColumn('notes', 'text')
         .addColumn('created_at', 'timestamp', (col) => col.notNull().defaultTo(sql`now()`))
         .addColumn('updated_at', 'timestamp', (col) => col.notNull().defaultTo(sql`now()`))
         .execute();

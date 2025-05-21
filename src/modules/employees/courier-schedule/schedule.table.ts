@@ -3,7 +3,6 @@ import { Generated, Insertable, Selectable, Updateable } from 'kysely';
 export interface CourierScheduleTable {
     id: Generated<number>;
     courier_id: number;
-    date: Date | string;
     start_datetime: Date;
     end_datetime: Date;
     status: 'scheduled' | 'confirmed' | 'completed' | 'canceled';

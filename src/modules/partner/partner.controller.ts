@@ -35,7 +35,7 @@ export const partnerController: FastifyPluginAsync<PartnerControllerOptions> = a
         Querystring: { offset?: number; limit?: number; }
     }>('/partners/delivery-methods/', { schema: { ...getDeliveryMethodsSchema, tags: ['Partner Delivery Methods'] }, }, async (request, reply) => {
         const { offset, limit } = request.query;
-        const {delivery_methods, count} = await deliveryMethodService.getDeliveryMethods({
+        const { delivery_methods, count } = await deliveryMethodService.getDeliveryMethods({
             offset,
             limit,
         });
@@ -73,7 +73,7 @@ export const partnerController: FastifyPluginAsync<PartnerControllerOptions> = a
         Querystring: { offset?: number; limit?: number; }
     }>('/partners/business-types/', { schema: { ...getBusinessTypesSchema, tags: ['Partner Business Types'] } }, async (request, reply) => {
         const { offset, limit } = request.query;
-        const {business_types, count} = await businessTypeService.getBusinessTypes({
+        const { business_types, count } = await businessTypeService.getBusinessTypes({
             offset,
             limit,
         });
@@ -102,14 +102,14 @@ export const partnerController: FastifyPluginAsync<PartnerControllerOptions> = a
         return reply.code(204).send();
     });
 
-    server.get('/partners/me/', { schema: { tags: ['Partners']}, preHandler: [server.authenticate] }, async (request, reply) => {
+    server.get('/partners/me/', { schema: { tags: ['Partners'] }, preHandler: [server.authenticate] }, async (request, reply) => {
         const userId = request.user.sub;
         const partner = await partnerService.findPartnerByUserId(userId);
         return reply.code(200).send(partner);
     })
 
-    
-    server.get<{ Params: { id: number }}>('/partners/:id/', { schema: { tags: ['Partners']} }, async (request, reply) => {
+
+    server.get<{ Params: { id: number } }>('/partners/:id/', { schema: { tags: ['Partners'] } }, async (request, reply) => {
         const id = request.params.id;
         const partner = await partnerService.findPartnerById(id);
         return reply.code(200).send(partner);
@@ -117,55 +117,55 @@ export const partnerController: FastifyPluginAsync<PartnerControllerOptions> = a
 
     // --- Partner Hours CRUD ---
 
-// Create a partner hour
-server.post<{ Body: CreatePartnerHourRequest, Params: { partner_id: number } }>(
-    '/partners/:partner_id/hours/',
-    { schema: { ...createPartnerHourSchema, tags: ['Partner Hours'] } },
-    async (request, reply) => {
-      const hour = await partnerHourService.createPartnerHour({ ...request.body, partner_id: request.params.partner_id });
-      return reply.code(201).send(hour);
-    }
-  );
-  
-  // Get all hours for a partner
-  server.get<{ Params: { partner_id: number } }>(
-    '/partners/:partner_id/hours/',
-    { schema: { ...getPartnerHoursSchema, tags: ['Partner Hours'] } },
-    async (request, reply) => {
-      const hours = await partnerHourService.getPartnerHoursByPartnerId(request.params.partner_id);
-      return reply.send(hours);
-    }
-  );
-  
-  // Get a specific partner hour
-  server.get<{ Params: { partner_id: number, hour_id: number } }>(
-    '/partners/:partner_id/hours/:hour_id/',
-    { schema: { ...getPartnerHourByIdSchema, tags: ['Partner Hours'] } },
-    async (request, reply) => {
-      const hour = await partnerHourService.getPartnerHourById(request.params.hour_id);
-      return reply.send(hour);
-    }
-  );
-  
-  // Update a specific partner hour
-  server.patch<{ Body: UpdatePartnerHourRequest, Params: { partner_id: number, hour_id: number } }>(
-    '/partners/:partner_id/hours/:hour_id/',
-    { schema: { ...updatePartnerHourSchema, tags: ['Partner Hours'] } },
-    async (request, reply) => {
-      const hour = await partnerHourService.updatePartnerHour(request.params.hour_id, request.body);
-      return reply.send(hour);
-    }
-  );
-  
-  // Delete a specific partner hour
-  server.delete<{ Params: { partner_id: number, hour_id: number } }>(
-    '/partners/:partner_id/hours/:hour_id/',
-    { schema: { ...deletePartnerHourSchema, tags: ['Partner Hours'] } },
-    async (request, reply) => {
-      await partnerHourService.deletePartnerHour(request.params.hour_id);
-      return reply.code(204).send();
-    }
-  );
+    // Create a partner hour
+    server.post<{ Body: CreatePartnerHourRequest, Params: { partner_id: number } }>(
+        '/partners/:partner_id/hours/',
+        { schema: { ...createPartnerHourSchema, tags: ['Partner Hours'] } },
+        async (request, reply) => {
+            const hour = await partnerHourService.createPartnerHour({ ...request.body, partner_id: request.params.partner_id });
+            return reply.code(201).send(hour);
+        }
+    );
+
+    // Get all hours for a partner
+    server.get<{ Params: { partner_id: number } }>(
+        '/partners/:partner_id/hours/',
+        { schema: { ...getPartnerHoursSchema, tags: ['Partner Hours'] } },
+        async (request, reply) => {
+            const hours = await partnerHourService.getPartnerHoursByPartnerId(request.params.partner_id);
+            return reply.send(hours);
+        }
+    );
+
+    // Get a specific partner hour
+    server.get<{ Params: { partner_id: number, hour_id: number } }>(
+        '/partners/:partner_id/hours/:hour_id/',
+        { schema: { ...getPartnerHourByIdSchema, tags: ['Partner Hours'] } },
+        async (request, reply) => {
+            const hour = await partnerHourService.getPartnerHourById(request.params.hour_id);
+            return reply.send(hour);
+        }
+    );
+
+    // Update a specific partner hour
+    server.patch<{ Body: UpdatePartnerHourRequest, Params: { partner_id: number, hour_id: number } }>(
+        '/partners/:partner_id/hours/:hour_id/',
+        { schema: { ...updatePartnerHourSchema, tags: ['Partner Hours'] } },
+        async (request, reply) => {
+            const hour = await partnerHourService.updatePartnerHour(request.params.hour_id, request.body);
+            return reply.send(hour);
+        }
+    );
+
+    // Delete a specific partner hour
+    server.delete<{ Params: { partner_id: number, hour_id: number } }>(
+        '/partners/:partner_id/hours/:hour_id/',
+        { schema: { ...deletePartnerHourSchema, tags: ['Partner Hours'] } },
+        async (request, reply) => {
+            await partnerHourService.deletePartnerHour(request.params.hour_id);
+            return reply.code(204).send();
+        }
+    );
 
     // Upload partner logo
     server.post<{ Params: { id: number } }>(
@@ -191,11 +191,11 @@ server.post<{ Body: CreatePartnerHourRequest, Params: { partner_id: number } }>(
                     const partnerId = parseInt(request.params.id as any);
                     const userId = request.user.sub;
                     const partner = await partnerService.findPartnerById(partnerId);
-                    
+
                     if (!partner) {
                         return reply.code(404).send({ message: 'Partner not found' });
                     }
-                    
+
                     if (partner.user_id !== userId && !request.user.roles?.includes('admin')) {
                         return reply.code(403).send({ message: 'Unauthorized' });
                     }
@@ -204,16 +204,16 @@ server.post<{ Body: CreatePartnerHourRequest, Params: { partner_id: number } }>(
         },
         async (request, reply) => {
             const data = await request.file();
-            
+
             if (!data) {
                 return reply.code(400).send({ message: 'No file uploaded' });
             }
-            
+
             // Validate file type
             const allowedTypes = ['image/jpeg', 'image/png', 'image/jpg', 'image/webp'];
             if (!allowedTypes.includes(data.mimetype)) {
-                return reply.code(400).send({ 
-                    message: 'Invalid file type. Only JPEG, PNG, and WebP images are allowed.' 
+                return reply.code(400).send({
+                    message: 'Invalid file type. Only JPEG, PNG, and WebP images are allowed.'
                 });
             }
 
@@ -222,14 +222,14 @@ server.post<{ Body: CreatePartnerHourRequest, Params: { partner_id: number } }>(
                 data.filename,
                 await data.toBuffer()
             );
-            
+
             return reply.code(200).send({
                 message: 'Logo uploaded successfully',
                 image_url: imageUrl
             });
         }
     );
-    
+
     server.post<{ Params: { id: number } }>(
         '/partners/:id/banner/',
         {
@@ -253,11 +253,11 @@ server.post<{ Body: CreatePartnerHourRequest, Params: { partner_id: number } }>(
                     const partnerId = parseInt(request.params.id as any);
                     const userId = request.user.sub;
                     const partner = await partnerService.findPartnerById(partnerId);
-                    
+
                     if (!partner) {
                         return reply.code(404).send({ message: 'Partner not found' });
                     }
-                    
+
                     if (partner.user_id !== userId && !request.user.roles?.includes('admin')) {
                         return reply.code(403).send({ message: 'Unauthorized' });
                     }
@@ -266,25 +266,25 @@ server.post<{ Body: CreatePartnerHourRequest, Params: { partner_id: number } }>(
         },
         async (request, reply) => {
             const data = await request.file();
-            
+
             if (!data) {
                 return reply.code(400).send({ message: 'No file uploaded' });
             }
-            
+
             const allowedTypes = ['image/jpeg', 'image/png', 'image/jpg', 'image/webp', 'image/avif'];
             if (!allowedTypes.includes(data.mimetype)) {
-                return reply.code(400).send({ 
-                    message: 'Invalid file type. Only JPEG, PNG, and WebP images are allowed.' 
+                return reply.code(400).send({
+                    message: 'Invalid file type. Only JPEG, PNG, and WebP images are allowed.'
                 });
             }
-            
+
             // Save file and get URL
             const imageUrl = await partnerService.savePartnerBanner(
                 parseInt(request.params.id as any),
                 data.filename,
                 await data.toBuffer()
             );
-            
+
             return reply.code(200).send({
                 message: 'Banner uploaded successfully',
                 image_url: imageUrl
@@ -299,5 +299,52 @@ server.post<{ Body: CreatePartnerHourRequest, Params: { partner_id: number } }>(
     }, async (request, reply) => {
         const partners = await partnerService.getPartners(request.query);
         return reply.send(partners);
+    })
+
+    server.patch<{
+        Params: { id: number },
+        Body: {
+            name?: string,
+            description?: string,
+            delivery_method_id?: number,
+            business_type_id?: number,
+            min_order_value?: number | string,
+            min_preparation_time_minutes?: number | string,
+            max_preparation_time_minutes?: number | string,
+            max_delivery_distance_km?: number | string,
+            delivery_fee?: number | string,
+            phone_number?: string,
+        }
+    }>('/partners/:id/', {
+        schema: {
+            tags: ['Partners'],
+            body: {
+                type: 'object',
+                properties: {
+                    name: { type: 'string' },
+                    delivery_method_id: { type: 'number' },
+                    business_type_id: { type: 'number' },
+                    min_order_value: { type: 'number' },
+                    min_preparation_time_minutes: { type: 'number' },
+                    max_preparation_time_minutes: { type: 'number' },
+                    max_delivery_distance_km: { type: 'number' },
+                    delivery_fee: { type: 'number' },
+                    phone_number: { type: 'string' },
+                }
+            }
+        },
+        preHandler: [
+            server.authenticate,
+            server.guard.role('admin', 'partner')
+        ]
+    }, async (request, reply) => {
+        const updatedPartner = await partnerService.updatePartner(
+            request.params.id,
+            request.body
+        );
+        return reply.status(200).send({
+            message: 'Partner updated successfully',
+            partner: updatedPartner
+        });
     })
 }

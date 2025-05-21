@@ -17,6 +17,7 @@ export interface UserService {
     lockUserByEmail(trx: Transaction<Database>, email: string): Promise<User | undefined>;
     lockUserById(trx: Transaction<Database>, id: string): Promise<User | undefined>;
     getUserRole(userId: string, role: string): Promise<UserRoleWithName>;
+    assignRoleToUser(userId: string, roleId: string): Promise<void>;
     findAllUsers(options?: { offset?: number; limit?: number, filters?: { email?: string; name?: string; phone_number?: string; } }): Promise<{ users: User[]; count?: number; }>;
 }
 
@@ -128,6 +129,9 @@ export function createUserService(repository: UserRepository, userRoleService: U
             }
 
             return userRole;
+        },
+        assignRoleToUser: async function (userId: string, roleId: string): Promise<void> {
+            await userRoleService.hasRole(userId, roleId);
         },
         findAllUsers: async function (options?: { offset?: number; limit?: number, filters?: { email?: string; name?: string; phone_number?: string; } }): Promise<{ users: User[]; count?: number; }> {
             const result = await repository.findAllUsers(options);

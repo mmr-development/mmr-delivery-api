@@ -52,12 +52,12 @@ export const orderController: FastifyPluginAsync<OrderControllerOptions> = async
         try {
             server.log.info(`Order API was called to update order: ${util.inspect(orderData)}`);
             const updatedOrder = await orderService.updateOrder(orderId, orderData);
-            
+            console.log(`Order #${orderId} updated successfully: ${util.inspect(updatedOrder)}`);
             // If order status was updated to 'ready' or 'confirmed' and delivery service is available,
             // attempt to assign delivery immediately
             if (deliveryService && 
                 orderData.status && 
-                ['ready', 'confirmed'].includes(orderData.status) && 
+                ['confirmed'].includes(orderData.status) && 
                 updatedOrder.delivery_type === 'delivery') {
                 
                 server.log.info(`Order #${orderId} status changed to ${orderData.status} - attempting immediate delivery assignment`);

@@ -300,7 +300,21 @@ export const createDeliveryRepository = (db: Kysely<Database>): DeliveryReposito
               ])
               .where('o.id', '=', delivery.order_id)
               .executeTakeFirst();
-            
+            console.log({
+              ...delivery,
+              order: {
+                ...order,
+                items: orderItems
+              },
+              pickup: pickup || { name: 'Unknown Restaurant', lat: null, lng: null },
+              delivery: deliveryLocation ? {
+                customer_name: `${deliveryLocation.first_name} ${deliveryLocation.last_name}`,
+                phone: deliveryLocation.phone_number,
+                address: deliveryLocation.address_detail,
+                lat: deliveryLocation.latitude,
+                lng: deliveryLocation.longitude
+              } : { customer_name: 'Unknown Customer', lat: null, lng: null }
+            });
             return {
               ...delivery,
               order: {

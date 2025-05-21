@@ -6,7 +6,7 @@ export const deliveryWebsocketPlugin: (deliveryService: DeliveryService) => Fast
   (deliveryService) => async (fastify) => {
     fastify.get('/ws/courier/delivery', { 
       websocket: true,
-      preHandler: [fastify.authenticate]
+      preHandler: [fastify.authenticate, fastify.guard.role('courier')]
     }, (connection, request) => {
       const socket = connection;
       let courierId: string | null = null;
@@ -43,21 +43,47 @@ export const deliveryWebsocketPlugin: (deliveryService: DeliveryService) => Fast
           fastify.log.info(`Courier ${courierId} connected: sending ${activeDelivery.length} active deliveries`);
           
           // Always send the deliveries array, even if empty
-          const formattedDeliveries = activeDelivery.map(d => ({
-            id: d.id,
-            order_id: d.order_id,
-            status: d.status,
-            assigned_at: d.assigned_at.toISOString(),
-            picked_up_at: d.picked_up_at?.toISOString(),
-            delivered_at: d.delivered_at?.toISOString(),
-            estimated_delivery_time: d.estimated_delivery_time?.toISOString()
-          }));
-
-          console.log(formattedDeliveries);
+                    const activeDeliveries = await deliveryService.getActiveCourierDeliveries(courierId);
           
           socket.send(JSON.stringify({
             type: 'current_deliveries',
-            payload: formattedDeliveries,
+  payload: {
+    success: true,
+    delivery_id: activeDelivery.id,
+    status: activeDelivery.status,
+    deliveries: activeDeliveries.map((d: any) => ({
+      id: d.id,
+      order_id: d.order_id,
+      status: d.status,
+      assigned_at: d.assigned_at.toISOString(),
+      picked_up_at: d.picked_up_at?.toISOString(),
+      delivered_at: d.delivered_at?.toISOString(),
+      estimated_delivery_time: d.estimated_delivery_time?.toISOString(),
+      // Include enhanced data
+      pickup: d.pickup ? {
+        name: d.pickup.name,
+        lat: d.pickup.latitude,
+        lng: d.pickup.longitude
+      } : null,
+      delivery: d.delivery ? {
+        customer_name: d.delivery.customer_name,
+        phone: d.delivery.phone,
+        address: d.delivery.address,
+        lat: d.delivery.lat,
+        lng: d.delivery.lng
+      } : null,
+      order: d.order ? {
+        total_amount: d.order.total_amount,
+        tip_amount: d.order.tip_amount,
+        items: d.order.items?.map((item: any) => ({
+          item_name: item.item_name,
+          quantity: item.quantity,
+          price: item.price,
+          note: item.note
+        }))
+      } : null
+    }))
+  },
             timestamp: new Date().toISOString()
           }));
         } catch (error) {
@@ -71,6 +97,7 @@ export const deliveryWebsocketPlugin: (deliveryService: DeliveryService) => Fast
             switch (message.type) {
               case 'status_update':
                 // Update delivery status
+                console.log('AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA');
                 if (message.delivery_id && message.status) {
                   try {
                     const updatedDelivery = await deliveryService.updateDeliveryStatus(
@@ -79,13 +106,47 @@ export const deliveryWebsocketPlugin: (deliveryService: DeliveryService) => Fast
                       courierId
                     );
                     
-                    socket.send(JSON.stringify({
-                      type: 'status_update',
-                      payload: {
-                        success: true,
-                        delivery_id: updatedDelivery.id,
-                        status: updatedDelivery.status
-                      },
+                    const activeDeliveries = await deliveryService.getActiveCourierDeliveries(courierId);
+
+socket.send(JSON.stringify({
+  type: 'status_update',
+  payload: {
+    success: true,
+    delivery_id: updatedDelivery.id,
+    status: updatedDelivery.status,
+    deliveries: activeDeliveries.map((d: any) => ({
+      id: d.id,
+      order_id: d.order_id,
+      status: d.status,
+      assigned_at: d.assigned_at.toISOString(),
+      picked_up_at: d.picked_up_at?.toISOString(),
+      delivered_at: d.delivered_at?.toISOString(),
+      estimated_delivery_time: d.estimated_delivery_time?.toISOString(),
+      // Include enhanced data
+      pickup: d.pickup ? {
+        name: d.pickup.name,
+        lat: d.pickup.latitude,
+        lng: d.pickup.longitude
+      } : null,
+      delivery: d.delivery ? {
+        customer_name: d.delivery.customer_name,
+        phone: d.delivery.phone,
+        address: d.delivery.address,
+        lat: d.delivery.lat,
+        lng: d.delivery.lng
+      } : null,
+      order: d.order ? {
+        total_amount: d.order.total_amount,
+        tip_amount: d.order.tip_amount,
+        items: d.order.items?.map((item: any) => ({
+          item_name: item.item_name,
+          quantity: item.quantity,
+          price: item.price,
+          note: item.note
+        }))
+      } : null
+    }))
+  },
                       timestamp: new Date().toISOString()
                     }));
                   } catch (error) {
