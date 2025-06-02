@@ -17,7 +17,8 @@ export interface CatalogService {
     createCatalog(partnerId: number, catalog: CreateCatalogRequest): Promise<Catalog>;
     updateCatalog(catalogId: number, catalog: UpdateableCatalogRow): Promise<Catalog>;
     deleteCatalog(catalogId: number): Promise<void>;
-    findCatalogsByPartnerId(partnerId: number): Promise<Catalog[]>; // Change to array
+    findCatalogsByPartnerId(partnerId: number): Promise<Catalog[]>;
+    findAllCatalogCategories(): Promise<CatalogCategory[]>;
     findFullCatalogsByPartnerId(partnerId: number, options?: { includeInactive?: boolean }): Promise<{
         partner: PartnerInfo;
         catalogs: Omit<PartnerCatalog, 'partner'>[];
@@ -45,7 +46,7 @@ export function createCatalogService(db: Kysely<Database>): CatalogService {
                 .values({
                     name: catalog.name,
                     partner_id: partnerId,
-                    is_active: catalog.is_active ?? true, // Default to true if not provided
+                    is_active: catalog.is_active ?? true,
                 })
                 .returningAll()
                 .executeTakeFirstOrThrow();
@@ -53,6 +54,21 @@ export function createCatalogService(db: Kysely<Database>): CatalogService {
             return catalogRowToCatalog(createdCatalog);
         },
         updateCatalog: async function (catalogId: number, catalog: UpdateableCatalogRow): Promise<Catalog> {
+            if (catalog.is_active === true) {
+                const currentCatalog = await db
+                    .selectFrom('catalog')
+                    .where('id', '=', catalogId)
+                    .select(['partner_id'])
+                    .executeTakeFirstOrThrow();
+
+                await db
+                    .updateTable('catalog')
+                    .set({ is_active: false })
+                    .where('partner_id', '=', currentCatalog.partner_id)
+                    .where('id', '!=', catalogId)
+                    .execute();
+            }
+
             const updatedCatalog = await db
                 .updateTable('catalog')
                 .set({
@@ -71,7 +87,7 @@ export function createCatalogService(db: Kysely<Database>): CatalogService {
                 .where('id', '=', catalogId)
                 .execute();
         },
-        findCatalogsByPartnerId: async function (partnerId: number): Promise<Catalog[]> { // Update return type
+        findCatalogsByPartnerId: async function (partnerId: number): Promise<Catalog[]> {
             const catalogs = await db
                 .selectFrom('catalog')
                 .where('catalog.partner_id', '=', partnerId)
@@ -79,62 +95,101 @@ export function createCatalogService(db: Kysely<Database>): CatalogService {
                 .execute();
             return catalogs.map(catalogRowToCatalog);
         },
+        findAllCatalogCategories: async function (): Promise<Array<{ id: number, name: string, count: number, partner_ids: number[] }>> {
+            const categories = await db
+                .selectFrom('catalog_category')
+                .innerJoin('catalog', 'catalog_category.catalog_id', 'catalog.id')
+                .select([
+                    'catalog_category.id',
+                    'catalog_category.name',
+                    'catalog_category.catalog_id',
+                    'catalog.partner_id'
+                ])
+                .where('catalog.is_active', '=', true)
+                .orderBy('catalog_category.name')
+                .execute();
+
+            const byName = new Map<string, { cat: typeof categories[0], count: number, partner_ids: Set<number> }>();
+            for (const cat of categories) {
+                if (!byName.has(cat.name)) {
+                    byName.set(cat.name, { cat, count: 1, partner_ids: new Set([cat.partner_id]) });
+                } else {
+                    const entry = byName.get(cat.name)!;
+                    entry.count += 1;
+                    entry.partner_ids.add(cat.partner_id);
+                }
+            }
+
+            return Array.from(byName.values()).map(entry => ({
+                id: entry.cat.id,
+                name: entry.cat.name,
+                count: entry.count,
+                partner_ids: Array.from(entry.partner_ids)
+            }));
+        },
         findFullCatalogsByPartnerId: async function (partnerId: number, options?: { includeInactive?: boolean }): Promise<{
             partner: PartnerInfo;
             catalogs: Omit<PartnerCatalog, 'partner'>[];
         }> {
-            // Create query builder that gets all catalogs with partner information
-            const catalogs = await db
-                .selectFrom('catalog')
-                .innerJoin('partner', 'catalog.partner_id', 'partner.id')
-                .where('catalog.partner_id', '=', partnerId)
-                .select(eb => [
-                    'catalog.id',
-                    'catalog.name',
-                    'catalog.description', // Added description field
-                    'catalog.partner_id',
-                    'catalog.is_active',
-                    'catalog.created_at',
-                    'catalog.updated_at',
-                    // Select partner information
-                    'partner.name as partner_name',
-                    'partner.logo_url',
-                    'partner.banner_url',
-                    'partner.phone_number',
-                    'partner.delivery_fee',
-                    'partner.min_order_value',
-                    'partner.max_delivery_distance_km',
-                    'partner.min_preparation_time_minutes',
-                    'partner.max_preparation_time_minutes',
-                    jsonArrayFrom(
-                        eb.selectFrom('catalog_category')
-                            .select(categoryEb => [
-                                'catalog_category.id',
-                                'catalog_category.name',
-                                'catalog_category.catalog_id',
-                                'catalog_category.index',
-                                'catalog_category.created_at',
-                                'catalog_category.updated_at',
-                                jsonArrayFrom(
-                                    categoryEb.selectFrom('catalog_item')
-                                        .select([
-                                            'catalog_item.id',
-                                            'catalog_item.name',
-                                            'catalog_item.description',
-                                            'catalog_item.price',
-                                            'catalog_item.image_url',
-                                            'catalog_item.catalog_category_id',
-                                            'catalog_item.index',
-                                            'catalog_item.created_at',
-                                            'catalog_item.updated_at'
-                                        ])
-                                        .where('catalog_item.catalog_category_id', '=', categoryEb.ref('catalog_category.id'))
-                                ).as('items')
-                            ])
-                            .where('catalog_category.catalog_id', '=', eb.ref('catalog.id'))
-                    ).as('categories')
-                ])
-                .execute();
+           let query = db
+        .selectFrom('catalog')
+        .innerJoin('partner', 'catalog.partner_id', 'partner.id')
+        .where('catalog.partner_id', '=', partnerId);
+
+        // Only include active catalogs by default, unless includeInactive is true
+        if (!options?.includeInactive) {
+            query = query.where('is_active', '=', true);
+        }
+
+        const catalogs = await query
+            .select(eb => [
+                'catalog.id',
+                'catalog.name',
+                'catalog.description',
+                'catalog.partner_id',
+                'catalog.is_active',
+                'catalog.created_at',
+                'catalog.updated_at',
+                'partner.name as partner_name',
+                'partner.logo_url',
+                'partner.banner_url',
+                'partner.phone_number',
+                'partner.delivery_fee',
+                'partner.min_order_value',
+                'partner.max_delivery_distance_km',
+                'partner.min_preparation_time_minutes',
+                'partner.max_preparation_time_minutes',
+                'partner.smiley_image_url',
+                'partner.smiley_report_link',
+                jsonArrayFrom(
+                    eb.selectFrom('catalog_category')
+                        .select(categoryEb => [
+                            'catalog_category.id',
+                            'catalog_category.name',
+                            'catalog_category.catalog_id',
+                            'catalog_category.index',
+                            'catalog_category.created_at',
+                            'catalog_category.updated_at',
+                            jsonArrayFrom(
+                                categoryEb.selectFrom('catalog_item')
+                                    .select([
+                                        'catalog_item.id',
+                                        'catalog_item.name',
+                                        'catalog_item.description',
+                                        'catalog_item.price',
+                                        'catalog_item.image_url',
+                                        'catalog_item.catalog_category_id',
+                                        'catalog_item.index',
+                                        'catalog_item.created_at',
+                                        'catalog_item.updated_at'
+                                    ])
+                                    .where('catalog_item.catalog_category_id', '=', categoryEb.ref('catalog_category.id'))
+                            ).as('items')
+                        ])
+                        .where('catalog_category.catalog_id', '=', eb.ref('catalog.id'))
+                ).as('categories')
+            ])
+            .execute();
 
             // Return early with empty arrays if no catalogs found
             if (catalogs.length === 0) {
@@ -148,13 +203,14 @@ export function createCatalogService(db: Kysely<Database>): CatalogService {
                         min_order_value: 0,
                         max_delivery_distance_km: 0,
                         min_preparation_time_minutes: 0,
-                        max_preparation_time_minutes: 0
+                        max_preparation_time_minutes: 0,
+                        smiley_image_url: '',
+                        smiley_report_link: ''
                     },
                     catalogs: []
                 };
             }
 
-            // Extract partner info from the first catalog item (all should have the same partner info)
             const partnerInfo: PartnerInfo = {
                 name: catalogs[0].partner_name || '',
                 logo_url: catalogs[0].logo_url || '',
@@ -164,14 +220,15 @@ export function createCatalogService(db: Kysely<Database>): CatalogService {
                 min_order_value: Number(catalogs[0].min_order_value) || 0,
                 max_delivery_distance_km: Number(catalogs[0].max_delivery_distance_km) || 0,
                 min_preparation_time_minutes: Number(catalogs[0].min_preparation_time_minutes) || 0,
-                max_preparation_time_minutes: Number(catalogs[0].max_preparation_time_minutes) || 0
+                max_preparation_time_minutes: Number(catalogs[0].max_preparation_time_minutes) || 0,
+                smiley_image_url: catalogs[0].smiley_image_url || '',
+                smiley_report_link: catalogs[0].smiley_report_link || ''
             };
-
-            // Map catalogs without partner info
+            console.log('formating catalogs for partner:', partnerInfo.name);
             const formattedCatalogs = catalogs.map(catalog => ({
                 id: catalog.id,
                 name: catalog.name,
-                description: catalog.description || '', // Added description field
+                description: catalog.description || '',
                 partner_id: catalog.partner_id,
                 is_active: catalog.is_active,
                 created_at: catalog.created_at,
@@ -189,10 +246,13 @@ export function createCatalogService(db: Kysely<Database>): CatalogService {
                                 id: item.id,
                                 name: item.name,
                                 description: item.description,
-                                price: Number(item.price),
+                                price: (() => {
+                                    const parsed = Number(item.price);
+                                    return isNaN(parsed) ? null : parsed;
+                                })(),
                                 catalog_category_id: item.catalog_category_id,
                                 image_url: item.image_url,
-                                index: item.index, // Added missing index field here
+                                index: item.index,
                                 created_at: item.created_at,
                                 updated_at: item.updated_at
                             }))
@@ -200,6 +260,7 @@ export function createCatalogService(db: Kysely<Database>): CatalogService {
                     }))
                     : []
             }));
+            console.log('formatted catalogs:', formattedCatalogs.length);
 
             return {
                 partner: partnerInfo,
@@ -395,7 +456,6 @@ export function createCatalogService(db: Kysely<Database>): CatalogService {
                 updateData.index = newIndex;
             }
 
-            // Update the item
             const updatedItem = await db
                 .updateTable('catalog_item')
                 .set(updateData)

@@ -351,7 +351,7 @@
         // Clock In
         document.getElementById('clock-in-btn').addEventListener('click', async () => {
             try {
-                const response = await fetch(`${API_URL}/courier/clock-in`, {
+                const response = await fetch(`${API_URL}/courier/clock-in/`, {
                     method: 'POST',
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
@@ -416,8 +416,8 @@
                     document.getElementById('connect-ws-btn').classList.add('hidden');
                     document.getElementById('disconnect-ws-btn').classList.remove('hidden');
 
-                    // Start heartbeat immediately after connecting
-                    sendHeartbeat();
+                    // Set up next heartbeat
+                    setTimeout(sendHeartbeat, 30000);
                 };
 
                 // Handle incoming messages
@@ -440,7 +440,7 @@
                             case 'current_deliveries':
                                 console.log('Current deliveries:', data.payload.deliveries);
                                 if (Array.isArray(data.payload.deliveries)) {
-                                    logMessage('System', `Received ${data.payload.length} active deliveries on connection`, 'incoming');
+                                    logMessage('System', `Received ${data.payload.deliveries.length} active deliveries on connection`, 'incoming');
 
                                     // Update the UI with the received deliveries
                                     console.log(data.payload.deliveries.length);
@@ -579,6 +579,10 @@
             }
         }
 
+        let lastSyncTime = 0;
+        const SYNC_INTERVAL = 150000; // 2.5 minutes in milliseconds
+
+
         // Heartbeat function with more robust handling
         function sendHeartbeat() {
             if (ws && ws.readyState === WebSocket.OPEN) {
@@ -588,13 +592,15 @@
                     timestamp: new Date().toISOString()
                 }));
 
-                // Request sync every 5 heartbeats (2.5 minutes)
-                if (Math.floor(Date.now() / 30000) % 5 === 0) {
+                // Request sync only if enough time has passed
+                const now = Date.now();
+                if (now - lastSyncTime > SYNC_INTERVAL) {
                     logMessage('System', 'Syncing deliveries...', 'outgoing');
                     ws.send(JSON.stringify({
                         type: 'sync_deliveries',
                         timestamp: new Date().toISOString()
                     }));
+                    lastSyncTime = now;
                 }
             }
 
@@ -635,73 +641,73 @@
         // }
 
         // Display deliveries received from WebSocket or HTTP API
-function displayDeliveries(deliveries) {
-    console.log(deliveries);
-    if (!deliveries || !deliveries.length) {
-        deliveriesList.innerHTML = '<p>No deliveries assigned yet.</p>';
-        return;
-    }
-    deliveriesList.innerHTML = '';
-    deliveries.forEach(delivery => {
-        const card = document.createElement('div');
-        card.className = 'delivery-card';
+        function displayDeliveries(deliveries) {
+            console.log(deliveries);
+            if (!deliveries || !deliveries.length) {
+                deliveriesList.innerHTML = '<p>No deliveries assigned yet.</p>';
+                return;
+            }
+            deliveriesList.innerHTML = '';
+            deliveries.forEach(delivery => {
+                const card = document.createElement('div');
+                card.className = 'delivery-card';
 
-        // Format dates for better display
-        const assignedDate = delivery.assigned_at ? new Date(delivery.assigned_at).toLocaleString() : 'Not specified';
-        const estimatedDelivery = delivery.estimated_delivery_time ?
-            new Date(delivery.estimated_delivery_time).toLocaleString() : 'Not specified';
+                // Format dates for better display
+                const assignedDate = delivery.assigned_at ? new Date(delivery.assigned_at).toLocaleString() : 'Not specified';
+                const estimatedDelivery = delivery.estimated_delivery_time ?
+                    new Date(delivery.estimated_delivery_time).toLocaleString() : 'Not specified';
 
-        // Get valid next statuses for this delivery
-        const validNextStatuses = validStatusTransitions[delivery.status] || [];
+                // Get valid next statuses for this delivery
+                const validNextStatuses = validStatusTransitions[delivery.status] || [];
 
-        // Build status dropdown options
-        let statusOptionsHtml = '';
-        const isTerminalState = validNextStatuses.length === 0;
-        statusOptionsHtml += `<option value="${delivery.status}" selected ${isTerminalState ? 'disabled' : ''}>${statusLabels[delivery.status]} (Current)</option>`;
-        validNextStatuses.forEach(status => {
-            statusOptionsHtml += `<option value="${status}">${statusLabels[status]}</option>`;
-        });
+                // Build status dropdown options
+                let statusOptionsHtml = '';
+                const isTerminalState = validNextStatuses.length === 0;
+                statusOptionsHtml += `<option value="${delivery.status}" selected ${isTerminalState ? 'disabled' : ''}>${statusLabels[delivery.status]} (Current)</option>`;
+                validNextStatuses.forEach(status => {
+                    statusOptionsHtml += `<option value="${status}">${statusLabels[status]}</option>`;
+                });
 
-        // Get order information 
-        const orderItems = delivery.order?.items || [];
-        const orderTotal = delivery.order?.total_amount ? parseFloat(delivery.order.total_amount) : 0;
-        const tipAmount = delivery.order?.tip_amount ? parseFloat(delivery.order.tip_amount) : 0;
+                // Get order information 
+                const orderItems = delivery.order?.items || [];
+                const orderTotal = delivery.order?.total_amount ? parseFloat(delivery.order.total_amount) : 0;
+                const tipAmount = delivery.order?.tip_amount ? parseFloat(delivery.order.tip_amount) : 0;
 
-        // Format order items
-        let orderItemsHtml = '';
-        if (orderItems.length > 0) {
-            orderItemsHtml = '<div class="order-items"><h4>Order Items:</h4><ul>';
-            orderItems.forEach(item => {
-                orderItemsHtml += `<li>${item.quantity}x ${item.item_name} - $${parseFloat(item.price).toFixed(2)}${item.note ? `<br><small>Note: ${item.note}</small>` : ''}</li>`;
-            });
-            orderItemsHtml += '</ul></div>';
-        }
+                // Format order items
+                let orderItemsHtml = '';
+                if (orderItems.length > 0) {
+                    orderItemsHtml = '<div class="order-items"><h4>Order Items:</h4><ul>';
+                    orderItems.forEach(item => {
+                        orderItemsHtml += `<li>${item.quantity}x ${item.item_name} - $${parseFloat(item.price).toFixed(2)}${item.note ? `<br><small>Note: ${item.note}</small>` : ''}</li>`;
+                    });
+                    orderItemsHtml += '</ul></div>';
+                }
 
-        // Get pickup and delivery information
-        const pickup = delivery.pickup || { name: 'Unknown Restaurant', lat: null, lng: null };
-        const deliveryInfo = delivery.delivery || { customer_name: 'Unknown Customer', phone: '', address: '', lat: null, lng: null };
+                // Get pickup and delivery information
+                const pickup = delivery.pickup || { name: 'Unknown Restaurant', lat: null, lng: null };
+                const deliveryInfo = delivery.delivery || { customer_name: 'Unknown Customer', phone: '', address: '', lat: null, lng: null };
 
-        // Create Google Maps links if coordinates are available
-        const pickupLat = pickup.lat ? parseFloat(pickup.lat) : null;
-        const pickupLng = pickup.lng ? parseFloat(pickup.lng) : null;
-        const deliveryLat = deliveryInfo.lat ? parseFloat(deliveryInfo.lat) : null;
-        const deliveryLng = deliveryInfo.lng ? parseFloat(deliveryInfo.lng) : null;
+                // Create Google Maps links if coordinates are available
+                const pickupLat = pickup.lat ? parseFloat(pickup.lat) : null;
+                const pickupLng = pickup.lng ? parseFloat(pickup.lng) : null;
+                const deliveryLat = deliveryInfo.lat ? parseFloat(deliveryInfo.lat) : null;
+                const deliveryLng = deliveryInfo.lng ? parseFloat(deliveryInfo.lng) : null;
 
-        const pickupMapLink = (pickupLat && pickupLng) ?
-            `<a href="https://www.google.com/maps?q=${pickupLat},${pickupLng}" target="_blank" class="map-link">Open in Maps</a>` : '';
+                const pickupMapLink = (pickupLat && pickupLng) ?
+                    `<a href="https://www.google.com/maps?q=${pickupLat},${pickupLng}" target="_blank" class="map-link">Open in Maps</a>` : '';
 
-        const deliveryMapLink = (deliveryLat && deliveryLng) ?
-            `<a href="https://www.google.com/maps?q=${deliveryLat},${deliveryLng}" target="_blank" class="map-link">Open in Maps</a>` : '';
+                const deliveryMapLink = (deliveryLat && deliveryLng) ?
+                    `<a href="https://www.google.com/maps?q=${deliveryLat},${deliveryLng}" target="_blank" class="map-link">Open in Maps</a>` : '';
 
-        // Format phone as a clickable link
-        const phoneLink = deliveryInfo.phone ?
-            `<a href="tel:${deliveryInfo.phone}" class="phone-link">${deliveryInfo.phone}</a>` : 'No phone number';
+                // Format phone as a clickable link
+                const phoneLink = deliveryInfo.phone ?
+                    `<a href="tel:${deliveryInfo.phone}" class="phone-link">${deliveryInfo.phone}</a>` : 'No phone number';
 
-        // Create directions link if both coordinates are available
-        const directionsLink = (pickupLat && pickupLng && deliveryLat && deliveryLng) ?
-            `<a href="https://www.google.com/maps/dir/${pickupLat},${pickupLng}/${deliveryLat},${deliveryLng}" target="_blank" class="map-link">Get Directions</a>` : '';
+                // Create directions link if both coordinates are available
+                const directionsLink = (pickupLat && pickupLng && deliveryLat && deliveryLng) ?
+                    `<a href="https://www.google.com/maps/dir/${pickupLat},${pickupLng}/${deliveryLat},${deliveryLng}" target="_blank" class="map-link">Get Directions</a>` : '';
 
-        card.innerHTML = `
+                card.innerHTML = `
           <h3>Delivery #${delivery.id} - Order #${delivery.order_id}</h3>
           <p>
             <span class="status-badge status-${delivery.status}">
@@ -749,9 +755,9 @@ function displayDeliveries(deliveries) {
           ${isTerminalState ? '<p><em>This delivery is in a terminal state and cannot be updated further.</em></p>' : ''}
         `;
 
-        deliveriesList.appendChild(card);
-    });
-}
+                deliveriesList.appendChild(card);
+            });
+        }
 
         // Update delivery status with optimistic updates for better user experience
         window.updateDeliveryStatus = async function (deliveryId) {
@@ -848,16 +854,6 @@ function displayDeliveries(deliveries) {
             messageLog.appendChild(message);
             messageLog.scrollTop = messageLog.scrollHeight;
         }
-
-        // Send heartbeat periodically to keep WebSocket alive
-        setInterval(() => {
-            if (ws && ws.readyState === WebSocket.OPEN) {
-                ws.send(JSON.stringify({
-                    type: 'heartbeat',
-                    timestamp: new Date().toISOString()
-                }));
-            }
-        }, 30000);
     </script>
 </body>
 

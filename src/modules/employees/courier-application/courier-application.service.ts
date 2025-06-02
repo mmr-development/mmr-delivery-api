@@ -1,5 +1,8 @@
 import { AddressService } from "../../address";
+import { PasswordResetTokenService } from "../../authentication";
+import { EmailService } from "../../email";
 import { UserService } from "../../users";
+import { UserRoleService } from "../../users/user-role/user-role.service";
 import { EmployeeRow, EmployeeWithRelationsRow } from "../employee.table";
 import { Courier } from "./courier";
 import { CourierApplicationRepository } from "./courier-application.repository";
@@ -17,7 +20,7 @@ export interface CourierApplicationService {
     deleteApplication(id: number): Promise<void>;
 }
 
-export function createCourierApplicationService(repository: CourierApplicationRepository, userService: UserService, addressService: AddressService): CourierApplicationService {
+export function createCourierApplicationService(repository: CourierApplicationRepository, userService: UserService, addressService: AddressService, emailService: EmailService, passwordResetService: PasswordResetTokenService, userRoleService: UserRoleService): CourierApplicationService {
     return {
         submitApplication: async function (application: CourierApplicationRequest): Promise<CreateCourierApplicationResponse> {
             const user = await userService.createCourierUser({
@@ -47,6 +50,13 @@ export function createCourierApplicationService(repository: CourierApplicationRe
                 is_eighteen_plus: application.personal_details.is_eighteen_plus,
                 status: application.personal_details.status,
             });
+
+            await emailService.sendCourierApplicationStatusEmail(
+                application.personal_details.email,
+                'received',
+                `${application.personal_details.first_name} ${application.personal_details.last_name}`,
+                { applicationId: courier.id }
+            );
 
             return {
                 message: "Application submitted successfully",
@@ -80,7 +90,45 @@ export function createCourierApplicationService(repository: CourierApplicationRe
             return courierRowToCourier(application);
         },
         updateApplication: async function (id: number, application: Partial<EmployeeRow>): Promise<EmployeeRow> {
-            return await repository.update(id, application);
+            const currentApplication = await repository.findById(id);
+            if (!currentApplication) {
+                throw new Error(`Application with ID ${id} not found`);
+            }
+
+            const updatedApplication = await repository.update(id, application);
+
+            if (application.status === 'approved' && currentApplication.status !== 'approved') {
+                try {
+                    await userService.assignRoleToUserSimple(updatedApplication.user_id, 'courier');
+                    console.log(`Courier role assigned to user ${updatedApplication.user_id} for application ${id}`);
+                } catch (error) {
+                    console.error(`Failed to assign courier role to user ${updatedApplication.user_id}:`, error);
+                }
+            }else{
+                if(updatedApplication.status == 'approved'){
+
+                    const resetToken = await passwordResetService.generateResetTokenWithoutEmail(currentApplication.email);
+                    const userHasPartnerRole = await userRoleService.hasRole(currentApplication.user_id, 'courier');
+                            
+                    if (!userHasPartnerRole) {
+                        await userRoleService.assignRoleToUser(currentApplication.user_id, 'courier');
+                    }
+                    await emailService.sendCourierApplicationStatusEmail(
+                        currentApplication.email,
+                        'approved',
+                        `${currentApplication.first_name} ${currentApplication.last_name}`,
+                        { applicationId: currentApplication.id, setupToken: resetToken }
+                    );
+                }else {
+                    await emailService.sendCourierApplicationStatusEmail(
+                        currentApplication.email,
+                        'rejected',
+                        `${currentApplication.first_name} ${currentApplication.last_name}`,
+                        { applicationId: currentApplication.id }
+                    );
+                }
+            }
+            return updatedApplication;
         },
         deleteApplication: async function (id: number): Promise<void> {
             await repository.delete(id);

@@ -2,6 +2,8 @@ import { Generated, Insertable, Selectable, Updateable } from 'kysely';
 
 export interface ChatTable {
   id: Generated<number>;
+  type: 'support' | 'delivery' | 'order' | 'general';
+  name: string;
   created_at: Generated<Date>;
   updated_at: Generated<Date>;
 }
@@ -9,6 +11,7 @@ export interface UserChatTable {
   id: Generated<number>;
   chat_id: number;
   user_id: string;
+  user_role: string;
   joined_at: Generated<Date>;
 }
 
@@ -36,6 +39,7 @@ export interface PushTokenTable {
   id: Generated<number>;
   user_id: string;
   token: string;
+  app_type: 'customer' | 'courier';
   created_at: Generated<Date>;
 }
 

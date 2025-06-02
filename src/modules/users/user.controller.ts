@@ -8,7 +8,37 @@ export interface UserControllerOptions {
 }
 
 export const userController: FastifyPluginAsync<UserControllerOptions> = async function (server, { userService }) {
-    server.withTypeProvider<TypeBoxTypeProvider>().get('/users/', { schema: { ...getAllUsersSchema }, preHandler: [server.authenticate, server.guard.role('admin', 'support')] }, async (request, reply) => {
+
+    server.withTypeProvider<TypeBoxTypeProvider>().post<{ Body: { email: string, first_name: string, last_name: string, phone_number: string } }>(
+        '/users/',
+        {
+            schema: {
+                tags: ['Users'],
+                body: {
+                    type: 'object',
+                    properties: {
+                        email: { type: 'string', format: 'email' },
+                        first_name: { type: 'string' },
+                        last_name: { type: 'string' },
+                        phone_number: { type: 'string', pattern: '^\\+?[0-9]*$' }
+                    },
+                    required: ['email', 'first_name', 'last_name'],
+                    additionalProperties: false
+                }
+            },
+            preHandler: [server.authenticate, server.guard.role('admin')]
+        },
+        async (request, reply) => {
+            const userData = request.body;
+
+            const user = await request.db.transaction().execute(async (trx) => {
+                return await userService.createAnonymousUser(trx, userData)
+            })
+
+            return reply.code(201).send(user);
+        });
+
+    server.withTypeProvider<TypeBoxTypeProvider>().get('/users/', { schema: { ...getAllUsersSchema }, preHandler: [server.authenticate, server.guard.role('admin')] }, async (request, reply) => {
         const query = request.query;
         try {
             const { users, count } = await userService.findAllUsers(query);
@@ -60,7 +90,7 @@ export const userController: FastifyPluginAsync<UserControllerOptions> = async f
             const userId = request.user.sub;
 
             // Fetch the user profile using the UserService
-            const user = await userService.findUserById(userId);
+            const user = await userService.findUserWithAddressById(userId);
 
             if (!user) {
                 return reply.code(404).send({
@@ -80,7 +110,119 @@ export const userController: FastifyPluginAsync<UserControllerOptions> = async f
         }
     });
 
-    server.withTypeProvider<TypeBoxTypeProvider>().post<{ Params: { user_id: string }, Body: { role_id: string } }>(
+    server.withTypeProvider<TypeBoxTypeProvider>().patch<{
+        Body: {
+            first_name?: string,
+            last_name?: string,
+            email?: string,
+            phone_number?: string,
+            address?: {
+                address_detail?: string,
+                latitude?: number,
+                longitude?: number,
+                street?: string,
+                postal_code?: string,
+                city?: string,
+                country?: string,
+                country_iso?: string
+            }
+        }
+    }>(
+        '/users/profile/',
+        {
+            schema: {
+                tags: ['Users'],
+                body: {
+                    type: 'object',
+                    properties: {
+                        first_name: { type: 'string' },
+                        last_name: { type: 'string' },
+                        email: { type: 'string', format: 'email' },
+                        phone_number: { type: 'string', pattern: '^\\+?[0-9]*$' },
+                        address: {
+                            type: 'object',
+                            properties: {
+                                address_detail: { type: 'string' },
+                                latitude: { type: 'number' },
+                                longitude: { type: 'number' },
+                                street: { type: 'string' },
+                                postal_code: { type: 'string' },
+                                city: { type: 'string' },
+                                country: { type: 'string' },
+                                country_iso: { type: 'string' }
+                            },
+                            additionalProperties: false
+                        }
+                    },
+                    additionalProperties: false
+                },
+                response: {
+                    200: {
+                        type: 'object',
+                        properties: {
+                            message: { type: 'string' },
+                            user: {
+                                type: 'object',
+                                properties: {
+                                    id: { type: 'string' },
+                                    first_name: { type: 'string' },
+                                    last_name: { type: 'string' },
+                                    email: { type: 'string' },
+                                    phone_number: { type: 'string' },
+                                    address: {
+                                        type: 'object',
+                                        properties: {
+                                            street: { type: 'string' },
+                                            address_detail: { type: 'string' },
+                                            postal_code: { type: 'string' },
+                                            city: { type: 'string' },
+                                            country: { type: 'string' },
+                                            country_iso: { type: 'string' },
+                                            latitude: { type: 'number' },
+                                            longitude: { type: 'number' }
+                                        }
+                                    },
+                                    created_at: { type: 'string', format: 'date-time' },
+                                    updated_at: { type: 'string', format: 'date-time' }
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            preHandler: [server.authenticate]
+        },
+        async (request, reply) => {
+            const userId = request.user.sub;
+            const userData = {
+                ...request.body
+            };
+
+            try {
+                const updatedUser = await userService.updateUserProfile(userId, userData);
+
+                if (!updatedUser) {
+                    return reply.code(404).send({
+                        message: 'User profile not found',
+                        statusCode: 404
+                    });
+                }
+
+                return reply.code(200).send({
+                    message: 'User profile updated successfully',
+                    user: updatedUser.user
+                });
+            } catch (error) {
+                request.log.error(error);
+                return reply.code(500).send({
+                    message: 'Failed to update user profile',
+                    statusCode: 500
+                });
+            }
+        }
+    );
+
+    server.withTypeProvider<TypeBoxTypeProvider>().post<{ Params: { user_id: string }, Body: { role_name: string } }>(
         '/users/:user_id/roles',
         {
             schema: {
@@ -89,23 +231,221 @@ export const userController: FastifyPluginAsync<UserControllerOptions> = async f
                 body: {
                     type: 'object',
                     properties: {
-                        role_id: { type: 'string' }
+                        role_name: { type: 'string' }
                     },
-                    required: ['role_id']
+                    required: ['role_name']
                 }
             },
             preHandler: [server.authenticate, server.guard.role('admin')]
         },
         async (request, reply) => {
             const { user_id } = request.params;
-            const { role_id } = request.body;
+            const { role_name } = request.body;
             try {
-                await userService.assignRoleToUser(user_id, role_id);
+                await request.db.transaction().execute(async (trx) => {
+                    await userService.assignRoleToUser(trx, user_id, role_name);
+                });
                 return reply.code(204).send();
             } catch (error) {
                 request.log.error(error);
                 return reply.code(500).send({ message: 'Failed to assign role' });
             }
+        }
+    );
+
+    server.withTypeProvider<TypeBoxTypeProvider>().patch<{ Params: { user_id: string }, Body: { roles: string[] } }>(
+        '/users/:user_id/roles/',
+        {
+            schema: {
+                tags: ['Users'],
+                summary: 'Update user roles',
+                body: {
+                    type: 'object',
+                    properties: {
+                        roles: {
+                            type: 'array',
+                            items: { type: 'string' }
+                        }
+                    },
+                    required: ['roles']
+                }
+            },
+            preHandler: [server.authenticate, server.guard.role('admin')]
+        },
+        async (request, reply) => {
+            const { user_id } = request.params;
+            const { roles } = request.body;
+
+            try {
+                if (roles.length === 0) {
+                    return reply.code(200).send({ message: 'No roles to update' });
+                }
+
+                await request.db.transaction().execute(async (trx) => {
+                    // First remove all existing roles
+                    await userService.removeAllUserRoles(trx, user_id);
+
+                    // Then assign the new roles
+                    for (const role_id of roles) {
+                        await userService.assignRoleToUser(trx, user_id, role_id);
+                    }
+                });
+
+                return reply.code(200).send({ message: 'User roles updated successfully' });
+            } catch (error) {
+                request.log.error(error);
+                return reply.code(500).send({ message: 'Failed to update user roles' });
+            }
+        }
+    );
+
+    // Change from '/users/' to '/users/:id/'
+    server.withTypeProvider<TypeBoxTypeProvider>().patch<{
+        Params: { id: string },
+        Body: {
+            first_name?: string,
+            last_name?: string,
+            email?: string,
+            phone_number?: string,
+            status?: string,
+            address?: {  // Add address object
+                street?: string,
+                address_detail?: string,
+                postal_code?: string,
+                city?: string,
+                country?: string,
+                country_iso?: string,
+                latitude?: number,
+                longitude?: number
+            }
+        }
+    }>(
+        '/users/:id/',
+        {
+            schema: {
+                tags: ['Users'],
+                summary: 'Update user details (Admin only)',
+                params: {
+                    type: 'object',
+                    properties: {
+                        id: { type: 'string' }
+                    },
+                    required: ['id']
+                },
+                body: {
+                    type: 'object',
+                    properties: {
+                        first_name: { type: 'string' },
+                        last_name: { type: 'string' },
+                        email: { type: 'string', format: 'email' },
+                        phone_number: { type: 'string', pattern: '^\\+?[0-9]*$' },
+                        status: { type: 'string', enum: ['active', 'inactive', 'suspended'] },
+                        address: {
+                            type: 'object',
+                            properties: {
+                                street: { type: 'string' },
+                                address_detail: { type: 'string' },
+                                postal_code: { type: 'string' },
+                                city: { type: 'string' },
+                                country: { type: 'string' },
+                                country_iso: { type: 'string' },
+                                latitude: { type: 'number' },
+                                longitude: { type: 'number' }
+                            },
+                            additionalProperties: false
+                        }
+                    },
+                    additionalProperties: false
+                },
+                response: {
+                    200: {
+                        type: 'object',
+                        properties: {
+                            message: { type: 'string' },
+                            user: {
+                                type: 'object',
+                                properties: {
+                                    id: { type: 'string' },
+                                    first_name: { type: 'string' },
+                                    last_name: { type: 'string' },
+                                    email: { type: 'string' },
+                                    phone_number: { type: 'string' },
+                                    status: { type: 'string' },
+                                    address: {  // Add address to response schema
+                                        type: 'object',
+                                        properties: {
+                                            street: { type: 'string' },
+                                            address_detail: { type: 'string' },
+                                            postal_code: { type: 'string' },
+                                            city: { type: 'string' },
+                                            country: { type: 'string' },
+                                            country_iso: { type: 'string' },
+                                            latitude: { type: 'number' },
+                                            longitude: { type: 'number' }
+                                        }
+                                    },
+                                    created_at: { type: 'string', format: 'date-time' },
+                                    updated_at: { type: 'string', format: 'date-time' }
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            preHandler: [server.authenticate, server.guard.role('admin')]
+        },
+        async (request, reply) => {
+            // Get ID from params instead of body
+            const id = request.params.id;
+            const userData = request.body;
+
+            try {
+                const updatedUser = await userService.updateUserById(id, userData);
+
+                if (!updatedUser) {
+                    return reply.code(404).send({
+                        message: 'User not found',
+                        statusCode: 404
+                    });
+                }
+
+                return reply.code(200).send({
+                    message: 'User updated successfully',
+                    user: updatedUser.user,
+                    address: updatedUser.user.address
+                });
+            } catch (error) {
+                request.log.error(error);
+                return reply.code(500).send({
+                    message: 'Failed to update user',
+                    statusCode: 500
+                });
+            }
+        }
+    );
+
+    server.withTypeProvider<TypeBoxTypeProvider>().post<{ Body: { token: string, app_type: string } }>(
+        '/users/push-token/',
+        {
+            schema: {
+                tags: ['Users'],
+                summary: 'Register Expo push token for the authenticated user',
+                body: {
+                    type: 'object',
+                    properties: {
+                        token: { type: 'string' },
+                        app_type: { type: 'string', enum: ['customer', 'courier'] }
+                    },
+                    required: ['token', 'app_type']
+                }
+            },
+            preHandler: [server.authenticate]
+        },
+        async (request, reply) => {
+            const userId = request.user.sub;
+            const { token, app_type } = request.body;
+            await userService.savePushToken(userId, token, app_type);
+            return reply.code(204).send();
         }
     );
 }

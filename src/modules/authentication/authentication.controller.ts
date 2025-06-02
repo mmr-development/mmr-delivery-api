@@ -1,5 +1,5 @@
 import { FastifyPluginAsync, FastifyReply } from 'fastify';
-import { InvalidCredentialsError, InvalidSignInMethodError, SignInMethodService, UserNotFoundError } from '../users/sign-in-method/sign-in-method.service';
+import { EmailAlreadyExistsError, InvalidCredentialsError, InvalidSignInMethodError, SignInMethodService, UserNotFoundError } from '../users/sign-in-method/sign-in-method.service';
 import { AuthenticationTokenService, RefreshToken } from './authentication-token.service';
 import { UserService } from '../users/user.service';
 import { PasswordResetTokenService } from './password-reset.service';
@@ -80,37 +80,27 @@ export const authenticationController: FastifyPluginAsync<AuthenticationControll
     server.post<{ Body: { refresh_token: string } }>('/auth/sign-out/', { schema: { ...logoutSchema }, preHandler: [server.authenticate] }, async (request, reply) => {
         const userId = request.user.sub;
 
-        // Revoke the access token
         await request.revokeToken();
 
-        // Try to get refresh token from cookie first, then from body
         let refreshToken = request.cookies.refresh_token;
 
-        // If not in cookie, check request body
         if (!refreshToken && request.body.refresh_token) {
             refreshToken = request.body.refresh_token;
         }
 
         if (refreshToken) {
-            // Revoke refresh token in database
             await authenticationTokenService.revokeRefreshToken(userId, refreshToken);
         }
 
-        // Clean up cookies if they were used
-        if (request.cookies.access_token) {
-            reply.clearCookie('access_token', { path: '/' });
-        }
-
-        if (request.cookies.refresh_token) {
-            reply.clearCookie('refresh_token', { path: '/' });
-        }
+        reply.clearCookie('access_token', { path: '/' });
+        reply.clearCookie('refresh_token', { path: '/' });
 
         reply.status(200).send({
             message: "Successfully logged out"
         });
     })
 
-    server.post<{ Body: { refresh_token?: string } }>('/auth/refresh-token/', {}, async (request, reply) => {
+    server.post<{ Body: { refresh_token?: string } }>('/auth/refresh-token/', { schema: { tags: ['Authentication'] }}, async (request, reply) => {
 
         let refreshToken = request.cookies.refresh_token;
         if (!refreshToken && request.body.refresh_token) {
@@ -170,7 +160,6 @@ export const authenticationController: FastifyPluginAsync<AuthenticationControll
                 timestamp: Date.now()
             });
 
-            // Set cookies for both tokens
             setAuthCookies(
                 reply,
                 accessToken.accessToken,
@@ -208,14 +197,29 @@ export const authenticationController: FastifyPluginAsync<AuthenticationControll
         const { password } = request.body;
         const { token } = request.params;
 
-        // const isValid = await passwordResetService.validateResetToken(email, token);
-        // if (!isValid) {
-        //     return reply.status(400).send({
-        //         statusCode: 400,  // Required field
-        //         error: "Bad Request", // Required field
-        //         message: "Invalid or expired token"
-        //     });
-        // }
+        const isValid = await passwordResetService.validateResetToken(token);
+        if (!isValid) {
+            return reply.status(400).send({
+                statusCode: 400,
+                error: "Bad Request",
+                message: "Invalid or expired token"
+            });
+        }
+
+        const tokenData = await passwordResetService.findValidToken(token);
+
+        if (!tokenData) {
+            return reply.status(400).send({
+                statusCode: 400,
+                error: "Bad Request",
+                message: "Invalid or expired token"
+            });
+        }
+
+        await request.db.transaction().execute(async (trx) => {
+            await signInMethodService.resetPasswordForEmail(trx, tokenData.email, password);
+            await passwordResetService.consumeResetToken(tokenData.email, token);
+        });
 
         return reply.status(200).send({
             message: "Password reset successfully"
@@ -231,25 +235,29 @@ export const authenticationController: FastifyPluginAsync<AuthenticationControll
                 password: new_password
             })
         })
+
+        return reply.status(200).send({
+            message: "Password changed successfully",
+            statusCode: 200
+        });
     });
 
-    server.post<{ Body: { first_name: string, last_name: string, email: string, phone_number: string, password: string, marketing_consent: boolean } }>('/auth/sign-up/', { schema: { ...signupSchema } }, async (request, reply) => {
-        const { first_name, last_name, email, phone_number, password, marketing_consent } = request.body;
+    server.post<{ Body: { first_name: string, last_name: string, email: string, phone_number: string, password: string } }>('/auth/sign-up/', { schema: { ...signupSchema } }, async (request, reply) => {
+        const { ...userRequest } = request.body;
 
-        const userRequest = {
-            first_name,
-            last_name,
-            email,
-            phone_number,
-            password
-        };
+        try {
+            const signedUpUser = await request.db.transaction().execute(async (trx) => {
+                return signInMethodService.signUpWithPassword(trx, userRequest);
+            });
 
-        const signedUpUser = await request.db.transaction().execute(async (trx) => {
-            return signInMethodService.signUpWithPassword(trx, userRequest);
-        });
-
-        reply.status(201).send({
-            message: "Customer account created successfully"
-        });
+            reply.status(201).send({
+                message: "Customer account created successfully",
+                user: signedUpUser.user,
+            });
+        } catch (error) {
+            if (error instanceof EmailAlreadyExistsError) {
+                throw new ControllerError(409, "EmailAlreadyExists", "A user with this email already exists");
+            }
+        }
     });
 }

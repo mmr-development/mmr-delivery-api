@@ -21,6 +21,7 @@ export interface SignInMethodService {
     signUpWithPassword(trx: Transaction<Database>, method: CreateCustomerUserRequest): Promise<SignedInUser>;
     addPasswordSignInMethod(trx: Transaction<Database>, userId: string, method: PasswordSignInMethod): Promise<void>;
     signInUsingPassword(trx: Transaction<Database>, method: PasswordSignInMethod): Promise<SignedInUser>;
+    resetPasswordForEmail(trx: Transaction<Database>, email: string, newPassword: string): Promise<void>;
     updatePasswordSignInMethod(trx: Transaction<Database>, userId: string, method: PasswordUpdate): Promise<void>;
 }
 
@@ -44,8 +45,9 @@ export function createSignInMethodService(authenticationTokenService: Authentica
         },
         signUpWithPassword: async function (trx: Transaction<Database>, method: CreateCustomerUserRequest): Promise<SignedInUser> {
             const existingUser = await userService.lockUserByEmail(trx, method.email);
+
             if (existingUser) {
-                throw new EmailAlreadyExistsError();
+                throw new EmailAlreadyExistsError('An account with this email already exists');
             }
 
             const user = await userService.insertUser(trx, {
@@ -58,25 +60,25 @@ export function createSignInMethodService(authenticationTokenService: Authentica
 
             await signInMethodRepository.insertPasswordSignInMethod(trx, {
                 user_id: user.id,
-                password_hash: await encryptPassword(method.password),
+                password_hash: await hashPassword(method.password),
             });
 
-            // Generate tokens
             const refreshToken = await authenticationTokenService.createRefreshToken(user.id, {
-                roles: ['customer'] // Default role for signed up users
+                roles: ['customer']
             });
             const accessToken = await authenticationTokenService.createAccessToken(refreshToken.refreshToken);
 
             return {
                 accessToken,
                 refreshToken,
+                user: user
             };
         },
         signInUsingPassword: async function (trx: Transaction<Database>, method: PasswordSignInMethod): Promise<SignedInUser> {
             const user = await userService.lockUserByEmail(trx, method.email);
 
             if (!user) {
-                throw new UserNotFoundError('User not found');
+                throw new UserNotFoundError('The email or password you entered is incorrect');
             }
 
             const signInMethod = await signInMethodRepository.findPasswordSignInMethod(trx, user.id);
@@ -91,17 +93,36 @@ export function createSignInMethodService(authenticationTokenService: Authentica
 
             const userRole = await userService.getUserRole(user.id, method.client_id);
 
-            // Pass role via claims object instead of direct parameter
             const refreshToken = await authenticationTokenService.createRefreshToken(user.id, {
-                roles: [userRole.role_name] // Always use an array for roles
+                roles: [userRole.role_name] 
             });
-            
-            // No need to pass role in createAccessToken as it will be extracted from the refresh token
+
             const accessToken = await authenticationTokenService.createAccessToken(refreshToken.refreshToken);
 
             return {
                 accessToken,
                 refreshToken
+            }
+        },
+        resetPasswordForEmail: async function (trx: Transaction<Database>, email: string, newPassword: string): Promise<void> {
+            const user = await userService.lockUserByEmail(trx, email);
+
+            if (!user) {
+                throw new UserNotFoundError('User not found');
+            }
+
+            const signInMethod = await signInMethodRepository.findPasswordSignInMethod(trx, user.id);
+            const passwordHash = await hashPassword(newPassword);
+
+            if (!signInMethod) {
+                await signInMethodRepository.insertPasswordSignInMethod(trx, {
+                    user_id: user.id,
+                    password_hash: passwordHash,
+                });
+            } else {
+                await signInMethodRepository.updatePasswordSignInMethod(trx, user.id, {
+                    password_hash: passwordHash,
+                });
             }
         },
         updatePasswordSignInMethod: async function (trx: Transaction<Database>, userId: string, method: PasswordUpdate): Promise<void> {
@@ -118,13 +139,13 @@ export function createSignInMethodService(authenticationTokenService: Authentica
             }
 
             await signInMethodRepository.updatePasswordSignInMethod(trx, user.id, {
-                password_hash: await encryptPassword(method.password),
+                password_hash: await hashPassword(method.password),
             });
         }
     }
 }
 
-async function encryptPassword(plainPassword: string): Promise<string> {
+async function hashPassword(plainPassword: string): Promise<string> {
     try {
         return await argon2.hash(plainPassword, {
             type: argon2.argon2id,

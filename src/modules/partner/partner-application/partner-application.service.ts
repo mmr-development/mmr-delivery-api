@@ -8,6 +8,7 @@ import { PartnerService } from '../partner.service';
 import { Partner } from '../partner';
 import { PartnerApplicationRequest, PartnerApplicationResponse, PartnerApplicationUpdate } from '../partner.schema';
 import { partnerRowToPartner, mapRowToApplicationResponse } from './partner-application.mapper';
+import { PasswordResetTokenService } from '../../authentication';
 
 export interface PartnerApplicationService {
   submitApplication(application: PartnerApplicationRequest): Promise<Partner>;
@@ -25,7 +26,7 @@ export function createPartnerApplicationService(
   addressService: AddressService, 
   emailService: EmailService, 
   userRoleService: UserRoleService,
-  partnerService: PartnerService
+  passwordResetService: PasswordResetTokenService,
 ): PartnerApplicationService {
   return {
     submitApplication: async function (application: PartnerApplicationRequest): Promise<Partner> {
@@ -104,7 +105,7 @@ export function createPartnerApplicationService(
       };
 
       await repository.update(id, updateData);
-
+      const resetToken = await passwordResetService.generateResetTokenWithoutEmail(existingApplication.user_email);
       // If partner was just approved
       if (wasApproved && existingApplication.user_email && existingApplication.user_id) {
         // Check if user already has partner role before trying to assign it
@@ -124,7 +125,7 @@ export function createPartnerApplicationService(
           'approved', // Use string enum instead of boolean
           existingApplication.name || 'Your Business',
           `${existingApplication.first_name || ''} ${existingApplication.last_name || ''}`.trim(),
-          { setupToken: 'activationToken' }
+          { setupToken: resetToken }
         );
       }
 

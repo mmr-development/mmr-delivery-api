@@ -39,6 +39,10 @@ export interface PartnerCatalogWithRelationships extends CatalogRow {
     delivery_fee?: number | string;
     min_order_value?: number | string;
     max_delivery_distance_km?: number | string;
+    min_preparation_time_minutes?: number | string;
+    max_preparation_time_minutes?: number | string;
+    smiley_image_url?: string;
+    smiley_report_link?: string;
 }
 
 export type CatalogRow = Selectable<CatalogTable>;

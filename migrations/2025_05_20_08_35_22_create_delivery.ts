@@ -18,6 +18,7 @@ export async function up(db: Kysely<any>): Promise<void> {
         .addColumn('order_id', 'integer', col => col.notNull().references('order.id').onDelete('cascade'))
         .addColumn('courier_id', 'uuid', col => col.notNull().references('user.id').onDelete('cascade'))
         .addColumn('status', sql`delivery_status`, col => col.notNull().defaultTo('assigned'))
+        .addColumn('proof_of_delivery_image', 'text')
         .addColumn('assigned_at', 'timestamp', col => col.notNull().defaultTo(sql`now()`))
         .addColumn('picked_up_at', 'timestamp')
         .addColumn('delivered_at', 'timestamp')

@@ -24,7 +24,9 @@ export const LoginQueryParamsSchema = Type.Object({
   });
 
 export const UserSchema = Type.Object({
-    id: Type.Number(),
+    id: Type.String({
+        description: 'Unique identifier for the user',
+    }),
     email: Type.String({ format: 'email' }),
     first_name: Type.String(),
     last_name: Type.String()
@@ -202,32 +204,26 @@ export const ChangePasswordRequestSchema = Type.Object({
     additionalProperties: false
 });
 
-// Change password response
 export const ChangePasswordResponseSchema = Type.Object({
     message: Type.String({ description: 'Password change confirmation' })
 });
 
-// TypeScript types
 export type ChangePasswordRequest = Static<typeof ChangePasswordRequestSchema>;
 export type ChangePasswordResponse = Static<typeof ChangePasswordResponseSchema>;
 
-// Fastify schema for the route
 export const changePasswordSchema: FastifySchema = {
     description: 'Change user password',
     tags: ['Authentication'],
     body: ChangePasswordRequestSchema,
     response: {
         200: ChangePasswordResponseSchema,
-        400: ErrorResponseSchema,
-        401: ErrorResponseSchema,
-        403: ErrorResponseSchema
+        // 400: ErrorResponseSchema,
+        // 401: ErrorResponseSchema,
+        // 403: ErrorResponseSchema
     },
     security: [{ bearerAuth: [] }]
 };
 
-// ...existing code...
-
-// Signup request schema
 export const SignupRequestSchema = Type.Object({
     first_name: Type.String({
         minLength: 1,
@@ -253,7 +249,7 @@ export const SignupRequestSchema = Type.Object({
 // Signup response schema
 export const SignupResponseSchema = Type.Object({
     message: Type.String({ description: 'Signup confirmation message' }),
-    // user: UserSchema
+    user: UserSchema
 });
 
 // TypeScript types
@@ -268,6 +264,6 @@ export const signupSchema: FastifySchema = {
     response: {
         201: SignupResponseSchema,
         400: ErrorResponseSchema,
-        409: ErrorResponseSchema // For email already exists conflicts
+        409: ErrorResponseSchema
     }
 };

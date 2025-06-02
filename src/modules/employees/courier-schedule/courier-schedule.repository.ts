@@ -9,6 +9,7 @@ export interface ScheduleRepository {
     getScheduleById(id: number): Promise<CourierScheduleRow | undefined>;
     updateSchedule(id: number, schedule: UpdateableCourierScheduleRow): Promise<CourierScheduleRow>;
     deleteSchedule(id: number): Promise<void>;
+    getPersonalSchedules(courierId: number, fromDate?: Date, toDate?: Date): Promise<CourierScheduleRow[]>;
 }
 
 export function createCourierScheduleRepository(db: Kysely<Database>): ScheduleRepository {
@@ -27,7 +28,7 @@ export function createCourierScheduleRepository(db: Kysely<Database>): ScheduleR
             }
             if (options.status) {
                 query = query.where('status', '=', options.status);
-            }
+        }
             if (options.from_date) {
                 query = query.where('start_datetime', '>=', options.from_date);
             }
@@ -67,6 +68,20 @@ export function createCourierScheduleRepository(db: Kysely<Database>): ScheduleR
             await db.deleteFrom('courier_schedule')
                 .where('id', '=', id)
                 .execute();
+        },
+        async getPersonalSchedules(courierId: number, fromDate?: Date, toDate?: Date) {
+            let query = db.selectFrom('courier_schedule')
+                .selectAll()
+                .where('courier_id', '=', courierId);
+
+            if (fromDate) {
+                query = query.where('start_datetime', '>=', fromDate);
+            }
+            if (toDate) {
+                query = query.where('end_datetime', '<=', toDate);
+            }
+
+            return await query.execute();
         }
     };
 }

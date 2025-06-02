@@ -1,6 +1,6 @@
 import { Kysely } from 'kysely';
 import { Database } from '../../database';
-import { RefreshTokenRow, InsertableRefreshTokenRow, UpdateableRefreshTokenRow } from './refresh-token.table';
+import { RefreshTokenRow, InsertableRefreshTokenRow, UpdateableRefreshTokenRow } from './auth.tables';
 
 export interface RefreshTokenRepository {
     insertRefreshToken(userId: string): Promise<RefreshTokenRow>;

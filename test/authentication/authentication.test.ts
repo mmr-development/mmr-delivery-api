@@ -24,12 +24,18 @@ describe('Authentication API tests', () => {
 
     assert.strictEqual(response.statusCode, 201);
     assert.strictEqual(response.json().message, 'Customer account created successfully');
+
+    const user = response.json().user;
+    assert.ok(user.id, 'User id should be present');
+    assert.strictEqual(user.email, 'anon@doe.com');
+    assert.strictEqual(user.first_name, 'Anon');
+    assert.strictEqual(user.last_name, 'Doe');
   })
 
   it('should sign in a user', async () => {
     const response = await ctx.server.inject({
       method: 'POST',
-      url: '/v1/auth/sign-in/',
+      url: '/v1/auth/sign-in/?client_id=customer',
       payload: {
         email: 'anon@doe.com',
         password: 'SecurePassword123',
@@ -73,29 +79,54 @@ describe('Authentication API tests', () => {
     const { access_token, refresh_token } = response.json();
     assert.ok(access_token, 'Should receive a new access token');
     assert.ok(refresh_token, 'Should receive a new refresh token');
-    
-    // Store the new tokens
+
     storeTokens(access_token, refresh_token);
   })
 
-  // it('should logout and revoke token', async () => {
-  //   const response = await ctx.server.inject({
-  //     method: 'POST',
-  //     url: '/v1/auth/logout',
-  //     ...createAuthHeaders(getAccessToken())
-  //   });
-    
-  //   assert.strictEqual(response.statusCode, 200);
-    
-  //   // Try to access protected route with revoked token
-  //   const protectedResponse = await ctx.server.inject({
-  //     method: 'GET',
-  //     url: '/v1/user/profile',
-  //     ...createAuthHeaders(getAccessToken())
-  //   });
-    
-  //   assert.strictEqual(protectedResponse.statusCode, 401);
-  // })
+  it('should change password', async () => {
+    const response = await ctx.server.inject({
+      method: 'POST',
+      url: '/v1/auth/change-password/',
+      payload: {
+        current_password: 'NewSecurePassword456',
+        new_password: 'NewSecurePassword456',
+        confirm_password: 'NewSecurePassword456',
+      },
+      ...createAuthHeaders(getAccessToken())
+    });
+    assert.strictEqual(response.statusCode, 200);
+    assert.strictEqual(response.json().message, 'Password changed successfully');
+  })
+
+  it('should logout and revoke token', async () => {
+    const response = await ctx.server.inject({
+      method: 'POST',
+      url: '/v1/auth/sign-out/',
+      payload: {
+        refresh_token: getRefreshToken(),
+      },
+      ...createAuthHeaders(getAccessToken())
+    });
+    assert.strictEqual(response.statusCode, 200);
+
+    const protectedResponse = await ctx.server.inject({
+      method: 'GET',
+      url: '/v1/users/profile/',
+      ...createAuthHeaders(getAccessToken())
+    });
+    assert.strictEqual(protectedResponse.statusCode, 401);
+  })
+
+  it('should fail to reset password with invalid token', async () => {
+    const response = await ctx.server.inject({
+      method: 'POST',
+      url: '/v1/auth/reset-password/invalidtoken/',
+      payload: { password: 'newpassword', confirm_password: 'newpassword' }
+    });
+
+    assert.strictEqual(response.statusCode, 400);
+    assert.strictEqual(response.json().message, 'Invalid or expired token');
+  });
 
   function createAuthHeaders(accessToken: string) {
     return {

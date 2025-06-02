@@ -3,6 +3,7 @@ import { ConnectionConfig } from 'pg';
 export interface Config {
     readonly port: number;
     readonly host: string;
+    readonly deliveryTokenSecret: string;
     readonly redis: {
         readonly host: string;
         readonly port: number;
@@ -19,8 +20,8 @@ export interface Config {
         readonly sameSite: string;
         readonly secure: boolean;
         readonly httpOnly: boolean;
-        readonly refreshTokenMaxAge: number;  // Added separate value for refresh tokens
-        readonly accessTokenMaxAge: number;   // Added separate value for access tokens
+        readonly refreshTokenMaxAge: number;
+        readonly accessTokenMaxAge: number; 
     };
     readonly database: ConnectionConfig;
     readonly email: {
@@ -36,6 +37,7 @@ export interface Config {
 
 export const config: Config = {
     host: process.env.HOST || '0.0.0.0',
+    deliveryTokenSecret: process.env.DELIVERY_TOKEN_SECRET || 'default_secret',
     port: parseInt(process.env.PORT || '8080'),
     database: {
         host: process.env.DB_HOST || 'postgres',
@@ -51,7 +53,7 @@ export const config: Config = {
     },
     jwt: {
         algorithm: process.env.JWT_ALGORITHM || 'RS256',
-        accessTokenExpiration: process.env.JWT_ACCESS_TOKEN_EXPIRATION || '1y',
+        accessTokenExpiration: process.env.JWT_ACCESS_TOKEN_EXPIRATION || '15m',
         refreshTokenExpiration: process.env.JWT_REFRESH_TOKEN_EXPIRATION || '7d',
     },
     cookie: {
@@ -60,8 +62,8 @@ export const config: Config = {
         sameSite: process.env.COOKIE_SAME_SITE || 'none',
         secure: process.env.COOKIE_SECURE === 'true',
         httpOnly: process.env.COOKIE_HTTP_ONLY === 'true',
-        refreshTokenMaxAge: parseInt(process.env.COOKIE_REFRESH_TOKEN_MAX_AGE || '604800'), // 7 days in seconds
-        accessTokenMaxAge: parseInt(process.env.COOKIE_ACCESS_TOKEN_MAX_AGE || '90000000'),      // 15 minutes in seconds
+        refreshTokenMaxAge: parseInt(process.env.COOKIE_REFRESH_TOKEN_MAX_AGE || '604800'),
+        accessTokenMaxAge: parseInt(process.env.COOKIE_ACCESS_TOKEN_MAX_AGE || '900'), // 15 minutes in seconds
     },
     email: {
         host: process.env.EMAIL_HOST || 'smtp.gmail.com',

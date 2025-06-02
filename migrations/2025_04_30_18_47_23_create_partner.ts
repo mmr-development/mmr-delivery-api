@@ -14,6 +14,8 @@ export async function up(db: Kysely<any>): Promise<void> {
         .addColumn('user_id', 'uuid', (col) => col.notNull().references('user.id').onDelete('cascade'))
         .addColumn('delivery_fee', 'decimal', (col) => col.notNull().defaultTo('0.00'))
         .addColumn('min_order_value', 'decimal', (col) => col.notNull().defaultTo('0.00'))
+        .addColumn('smiley_image_url', 'varchar(255)')
+        .addColumn('smiley_report_link', 'varchar(255)')
         .addColumn('max_delivery_distance_km', 'decimal', (col) => col.notNull().defaultTo('10.00'))
         .addColumn('min_preparation_time_minutes', 'integer', (col) => col.notNull().defaultTo(0))
         .addColumn('max_preparation_time_minutes', 'integer', (col) => col.notNull().defaultTo(60))
@@ -95,9 +97,77 @@ export async function up(db: Kysely<any>): Promise<void> {
         FROM indexed_items ii
         WHERE ci.id = ii.id
     `.execute(db);
+
+        await db.schema.createIndex('idx_catalog_partner_id')
+        .on('catalog')
+        .column('partner_id')
+        .execute();
+    
+    await db.schema.createIndex('idx_catalog_category_catalog_id')
+        .on('catalog_category')
+        .column('catalog_id')
+        .execute();
+    
+    await db.schema.createIndex('idx_catalog_item_category_id')
+        .on('catalog_item')
+        .column('catalog_category_id')
+        .execute();
+    
+    await db.schema.createIndex('idx_catalog_category_index')
+        .on('catalog_category')
+        .columns(['catalog_id', 'index'])
+        .execute();
+        
+    await db.schema.createIndex('idx_catalog_item_index')
+        .on('catalog_item')
+        .columns(['catalog_category_id', 'index'])
+        .execute();
+
+    await db.schema.createIndex('idx_partner_status')
+        .on('partner')
+        .column('status')
+        .execute();
+
+    // For efficient address joins
+    await db.schema.createIndex('idx_address_postal_code_id')
+        .on('address')
+        .column('postal_code_id')
+        .execute();
+
+    await db.schema.createIndex('idx_postal_code_city_id')
+        .on('postal_code')
+        .column('city_id')
+        .execute();
+
+    await db.schema.createIndex('idx_city_id')
+        .on('city')
+        .column('id')
+        .execute();
+
+    await db.schema.createIndex('idx_partner_hour_partner_id')
+        .on('partner_hour')
+        .column('partner_id')
+        .execute();
+
+    await db.schema.createIndex('idx_partner_address_id')
+        .on('partner')
+        .column('address_id')
+        .execute();
 }
 
 export async function down(db: Kysely<any>): Promise<void> {
+    await db.schema.dropIndex('idx_catalog_partner_id').execute();
+    await db.schema.dropIndex('idx_catalog_category_catalog_id').execute();
+    await db.schema.dropIndex('idx_catalog_item_category_id').execute();
+    await db.schema.dropIndex('idx_catalog_category_index').execute();
+    await db.schema.dropIndex('idx_catalog_item_index').execute();
+    await db.schema.dropIndex('idx_partner_status').execute();
+    await db.schema.dropIndex('idx_address_postal_code_id').execute();
+    await db.schema.dropIndex('idx_postal_code_city_id').execute();
+    await db.schema.dropIndex('idx_city_id').execute();
+    await db.schema.dropIndex('idx_partner_hour_partner_id').execute();
+    await db.schema.dropIndex('idx_partner_address_id').execute();
+
     await db.schema.dropTable('partner').execute();
     await db.schema.dropTable('partner_hour').execute();
     await db.schema.dropTable('catalog').execute();

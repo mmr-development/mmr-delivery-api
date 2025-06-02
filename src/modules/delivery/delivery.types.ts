@@ -1,6 +1,5 @@
-import { Generated } from 'kysely';
+import { Generated, Insertable, Selectable, Updateable } from 'kysely';
 
-// Delivery status type from the database enum
 export type DeliveryStatus = 
   | 'assigned'
   | 'picked_up'
@@ -9,8 +8,7 @@ export type DeliveryStatus =
   | 'failed'
   | 'canceled';
 
-// Basic database row types
-export interface DeliveryRow {
+export interface DeliveryTable {
   id: Generated<number>;
   order_id: number;
   courier_id: string;
@@ -19,9 +17,13 @@ export interface DeliveryRow {
   picked_up_at: Date | null;
   delivered_at: Date | null;
   estimated_delivery_time: Date | null;
+  proof_of_delivery_image: string | null;
   created_at: Generated<Date>;
   updated_at: Generated<Date>;
 }
+
+export type DeliveryRow = Selectable<DeliveryTable>;
+export type UpdateableDeliveryRow = Updateable<DeliveryTable>;
 
 export interface CourierLocationRow {
   id: Generated<number>;

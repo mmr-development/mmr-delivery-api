@@ -44,10 +44,19 @@ export interface GetCouriersOptions {
     limit?: number;
 }
 
+export interface CourierColleague {
+  id: number;
+  user_uuid: string;
+  first_name: string;
+  last_name: string;
+}
+
 export interface CourierService {
     createCourier(request: CreateCourierRequest): Promise<CreateCourierResponse>;
     getCouriers(query: GetCouriersOptions): Promise<{ couriers: Courier[]; total: number; limit?: number; offset?: number }>;
+    getColleagues(currentUserUuid?: string): Promise<CourierColleague[]>;
     getCourierById(id: number): Promise<Courier | null>;
+    getCourierByUserId(userId: string): Promise<Courier | null>;
     updateCourier(id: number, request: Partial<CreateCourierRequest>): Promise<Courier>;
     deleteCourier(id: number): Promise<void>;
 }
@@ -69,6 +78,16 @@ export function createCourierService(repository: CourierRepository): CourierServ
                 offset: query.offset,
             };
         },
+        async getColleagues(currentUserUuid?: string): Promise<CourierColleague[]> {
+            const colleagues = await repository.getColleagues(currentUserUuid);
+            return colleagues.map(colleague => ({
+                id: colleague.id,
+                user_uuid: colleague.user_uuid,
+                first_name: colleague.first_name,
+                last_name: colleague.last_name,
+                role: colleague.role || 'courier'
+            }));
+        },
         async getCourierById(id: number): Promise<CourierDetails | null> {
             const courier = await repository.getCourierById(id);
             if (!courier) return null;
@@ -80,6 +99,11 @@ export function createCourierService(repository: CourierRepository): CourierServ
         },
         async deleteCourier(id: number): Promise<void> {
             await repository.deleteCourier(id);
+        },
+        async getCourierByUserId(userId: string): Promise<Courier | null> {
+            const courier = await repository.getCourierByUserId(userId);
+            if (!courier) return null;
+            return courierRowToCourier(courier);
         }
     };
 }

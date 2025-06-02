@@ -18,12 +18,19 @@ export const catalogController: FastifyPluginAsync<CatalogControllerOptions> = a
             return reply.code(201).send(catalog);
         });
 
-    server.get<{ Params: { partner_id: number } }>(
+    server.get<{ Params: { partner_id: number }, Querystring: { include_inactive?: boolean } }>(
         '/partners/:partner_id/catalogs/full/',
         { schema: getFullCatalogSchema },
         async (request, reply) => {
             const { partner_id } = request.params;
-            const result = await catalogService.findFullCatalogsByPartnerId(partner_id);
+            const { include_inactive } = request.query;
+        
+            const result = await catalogService.findFullCatalogsByPartnerId(
+                partner_id, 
+                { includeInactive: include_inactive }
+            );
+
+            console.log('Full Catalogs Result:', include_inactive);
 
             return {
               partner: result.partner,
@@ -99,7 +106,6 @@ export const catalogController: FastifyPluginAsync<CatalogControllerOptions> = a
                 return reply.code(400).send({ message: 'No file uploaded' });
             }
 
-            // Check file type
             const allowedMimeTypes = ['image/jpeg', 'image/png', 'image/jpg'];
             if (!allowedMimeTypes.includes(data.mimetype)) {
                 return reply.code(400).send({
@@ -107,7 +113,6 @@ export const catalogController: FastifyPluginAsync<CatalogControllerOptions> = a
                 });
             }
 
-            // Process the file using your service
             const imageUrl = await catalogService.uploadMenuImage(
                 request.params.catalog_id,
                 data.filename,
@@ -119,6 +124,11 @@ export const catalogController: FastifyPluginAsync<CatalogControllerOptions> = a
             request.log.error(error);
             return reply.code(500).send({ message: 'Failed to upload image' });
         }
+    });
+
+    server.get('/catalog/categories/all/', async (request, reply) => {
+    const categories = await catalogService.findAllCatalogCategories();
+    return reply.code(200).send({ categories });
     });
 
     server.get<{ Params: { catalog_id: number } }>('/catalog/:catalog_id/categories', { schema: { ...getCategoriesSchema } }, async (request, reply) => {
@@ -184,17 +194,14 @@ export const catalogController: FastifyPluginAsync<CatalogControllerOptions> = a
                 });
             }
 
-            // Process the file using your service
             const imageUrl = await catalogService.uploadCatalogItemImage(
                 request.params.item_id,
                 data.filename,
                 await data.toBuffer()
             );
 
-            // Return JSON object with imageUrl property
             return reply.code(201).send({ imageUrl });
         } catch (error) {
-            // Add proper error handling
             request.log.error(error);
             return reply.code(500).send({
                 message: error instanceof Error ? error.message : 'Failed to upload image'
@@ -202,7 +209,6 @@ export const catalogController: FastifyPluginAsync<CatalogControllerOptions> = a
         }
     });
 
-    // patch to update category item
     server.patch<{ Params: { item_id: number }, Body: CreateCatalogItemRequest }>(
         '/categories/items/:item_id/',
         { schema: { ...updateItemSchema } },

@@ -8,14 +8,16 @@ export const timeEntryController: FastifyPluginAsync<{
 }> = async (fastify, { timeEntryService }) => {
   const typedServer = fastify.withTypeProvider<TypeBoxTypeProvider>();
   
-  // Clock in endpoint
-  typedServer.post('/courier/clock-in', {
+   typedServer.post('/courier/clock-in/', {
     schema: {
+      tags: ['Time Entry'],
+      security: [{ bearerAuth: [] }],
       response: {
         200: Type.Object({
           success: Type.Boolean(),
           time_entry_id: Type.Number(),
-          clock_in: Type.String({ format: 'date-time' })
+          clock_in: Type.String({ format: 'date-time' }),
+          schedule_id: Type.Optional(Type.Number())
         }),
         400: Type.Object({
           success: Type.Boolean(),
@@ -25,15 +27,19 @@ export const timeEntryController: FastifyPluginAsync<{
     },
     preHandler: [fastify.authenticate]
   }, async (request, reply) => {
-    // Use sub instead of id
     const courierId = request.user.sub;
+    const { schedule_id } = request.body || {};
     
     try {
-      const result = await timeEntryService.clockIn(courierId);
+      const result = schedule_id !== undefined
+        ? await timeEntryService.clockIn(courierId, schedule_id)
+        : await timeEntryService.clockIn(courierId);
+        
       return {
         success: true,
         time_entry_id: result.id,
-        clock_in: result.clock_in.toISOString()
+        clock_in: result.clock_in.toISOString(),
+        schedule_id: result.schedule_id
       };
     } catch (error) {
       return reply.code(400).send({
@@ -43,15 +49,17 @@ export const timeEntryController: FastifyPluginAsync<{
     }
   });
   
-  // Clock out endpoint
-  typedServer.post('/courier/clock-out', {
+  typedServer.post('/courier/clock-out/', {
     schema: {
+      tags: ['Time Entry'],
+      security: [{ bearerAuth: [] }],
       response: {
         200: Type.Object({
           success: Type.Boolean(),
           time_entry_id: Type.Number(),
           clock_in: Type.String({ format: 'date-time' }),
-          clock_out: Type.String({ format: 'date-time' })
+          clock_out: Type.String({ format: 'date-time' }),
+          schedule_id: Type.Optional(Type.Number())
         }),
         400: Type.Object({
           success: Type.Boolean(),
@@ -61,11 +69,11 @@ export const timeEntryController: FastifyPluginAsync<{
     },
     preHandler: [fastify.authenticate]
   }, async (request, reply) => {
-    // Use sub instead of id
     const courierId = request.user.sub;
     
     try {
       const result = await timeEntryService.clockOut(courierId);
+      
       if (!result) {
         return reply.code(400).send({
           success: false,
@@ -77,7 +85,8 @@ export const timeEntryController: FastifyPluginAsync<{
         success: true,
         time_entry_id: result.id,
         clock_in: result.clock_in.toISOString(),
-        clock_out: result.clock_out?.toISOString()
+        clock_out: result.clock_out?.toISOString(),
+        schedule_id: result.schedule_id
       };
     } catch (error) {
       return reply.code(400).send({

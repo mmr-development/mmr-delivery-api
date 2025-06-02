@@ -5,7 +5,7 @@ export interface CourierScheduleTable {
     courier_id: number;
     start_datetime: Date;
     end_datetime: Date;
-    status: 'scheduled' | 'confirmed' | 'completed' | 'canceled';
+    status: 'scheduled' | 'confirmed' | 'completed' | 'canceled' | 'vacation';
     notes: string | null;
     created_at: Generated<Date>;
     updated_at: Generated<Date>;

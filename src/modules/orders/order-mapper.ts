@@ -22,6 +22,7 @@ export function mapOrderRowToDetails(row: OrderWithDetailsRow): OrderDetails {
       last_name: row.last_name,
       email: row.email,
       phone_number: row.phone_number,
+      customer_id: row.customer_id,
       address: {
         country: row.country,
         city: row.city,
@@ -61,6 +62,7 @@ export function mapOrderRowFromPartnerQuery(row: any) {
     total_amount: Number(row.total_amount),
     tip_amount: Number(row.tip_amount),
     note: row.note || undefined,
+    total_quantity: row.total_quantity,
     created_at: row.created_at,
     updated_at: row.updated_at,
     items: row.items.map((item: any) => ({

@@ -61,25 +61,22 @@ export function createAuthenticationTokenService(repository: RefreshTokenReposit
         async createRefreshToken(userId: string, claims?: Record<string, any>): Promise<RefreshToken> {
             const { refresh_token_id } = await repository.insertRefreshToken(userId);
 
-            // Create the base payload
             const tokenPayload = {
                 sub: userId,
                 jti: refresh_token_id,
                 is_refresh_token: true,
             };
 
-            // Sign the token with roles in claims
             const options: jwt.SignOptions = {
                 algorithm: config.jwt.algorithm as jwt.Algorithm,
                 expiresIn: config.jwt.refreshTokenExpiration as jwt.SignOptions['expiresIn'],
             };
-            
-            // Get roles from claims, ensuring we always use an array
+
             const roles = claims?.roles || [];
             
             return {
                 refreshToken: jwt.sign(
-                    { ...tokenPayload, roles }, // Always use 'roles' as an array
+                    { ...tokenPayload, roles },
                     privateKey,
                     options
                 )
@@ -103,8 +100,7 @@ export function createAuthenticationTokenService(repository: RefreshTokenReposit
         createAccessToken: async function (refreshToken: string, claims?: Record<string, any>): Promise<AccessToken> {
             const payload = await this.verifyRefreshToken(refreshToken);
             const { sub, jti } = payload;
-            
-            // Get role from JWT claims, now consistently using 'roles'
+
             const decodedToken = this.verifyToken(refreshToken) as jwt.JwtPayload;
             const roles = decodedToken.roles || [];
 
@@ -112,7 +108,6 @@ export function createAuthenticationTokenService(repository: RefreshTokenReposit
                 last_refreshed_at: new Date(),
             });
 
-            // Simply merge claims with roles - no cleaning needed
             const updatedClaims = { 
                 ...claims,
                 roles 
@@ -165,7 +160,7 @@ export function createAuthenticationTokenService(repository: RefreshTokenReposit
 
             return {
                 accessToken: jwt.sign(
-                    { ...tokenPayload, jti, ...(claims || {}) }, // Include JTI in payload
+                    { ...tokenPayload, jti, ...(claims || {}) },
                     privateKey,
                     options
                 )
@@ -181,20 +176,16 @@ export function createAuthenticationTokenService(repository: RefreshTokenReposit
             await repository.deleteRefreshToken(payload.jti);
         },
         rotateTokens: async function (refreshToken: string, claims?: Record<string, any>): Promise<{ accessToken: AccessToken, refreshToken: RefreshToken }> {
-            // Get the base payload
             const payload = await this.verifyRefreshToken(refreshToken);
             const { sub, jti } = payload;
-            
-            // Get role from JWT claims, now consistently using 'roles'
+
             const decodedToken = this.verifyToken(refreshToken) as jwt.JwtPayload;
             const roles = decodedToken.roles || [];
 
-            // Pass the roles when creating the new refresh token
             const newRefreshToken = await this.createRefreshToken(sub, { roles });
 
             const { jti: newRefreshTokenId } = await this.verifyRefreshToken(newRefreshToken.refreshToken);
             
-            // Simply merge claims with roles - no cleaning needed
             const updatedClaims = {
                 ...claims,
                 roles

@@ -124,7 +124,7 @@ export const partnerApplicationController: FastifyPluginAsync<PartnerApplication
 
   // Update application
   fastify.patch(
-    '/partner-applications/:id',
+    '/partner-applications/:id/',
     {
       schema: {
         tags: ['Partner Applications'],
@@ -169,34 +169,6 @@ export const partnerApplicationController: FastifyPluginAsync<PartnerApplication
       const { id } = request.params as { id: number };
       await partnerApplicationService.deleteApplication(id);
       return reply.status(204).send();
-    }
-  );
-
-  // Activate partner account
-  fastify.post(
-    '/partner-applications/activate',
-    {
-      schema: {
-        tags: ['Partner Applications'],
-        querystring: Type.Object({
-          token: Type.String(),
-        }),
-        body: Type.Object({
-          password: Type.String({ minLength: 8 }),
-        }),
-        response: {
-          200: Type.Object({
-            success: Type.Boolean(),
-          }),
-        },
-      },
-    },
-    async (request, reply) => {
-      const { token } = request.query as { token: string };
-      const { password } = request.body as { password: string };
-      
-      const result = await partnerApplicationService.activatePartner(token, password);
-      return result;
     }
   );
 };

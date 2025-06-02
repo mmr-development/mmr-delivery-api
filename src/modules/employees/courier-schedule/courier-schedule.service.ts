@@ -1,11 +1,12 @@
 import { ScheduleRepository } from './courier-schedule.repository';
 import { CourierScheduleRow } from './schedule.table';
+import { CourierService } from '../couriers/courier.service';
 
 export interface CreateCourierScheduleRequest {
     courier_id: number;
     start_datetime: Date;
     end_datetime: Date;
-    status: "scheduled" | "confirmed" | "completed" | "canceled";
+    status: "scheduled" | "confirmed" | "completed" | "canceled" | "vacation";
     notes?: string | null;
 }
 
@@ -28,7 +29,7 @@ export interface GetSchedulesOptions {
     courier_id?: number;
     from_date?: Date;
     to_date?: Date;
-    status?: "scheduled" | "confirmed" | "completed" | "canceled";
+    status?: "scheduled" | "confirmed" | "completed" | "canceled" | "vacation";
     offset?: number;
     limit?: number;
 }
@@ -39,9 +40,11 @@ export interface CourierScheduleService {
     getScheduleById(id: number): Promise<Schedule | null>;
     updateSchedule(id: number, request: Partial<CreateCourierScheduleRequest>): Promise<Schedule>;
     deleteSchedule(id: number): Promise<void>;
+    getCourierByUserId(userId: string): Promise<{id: number} | null>;
+    getPersonalSchedules(query: GetSchedulesOptions): Promise<{ schedules: Schedule[]; total: number; limit?: number; offset?: number }>;
 }
 
-export function createCourierScheduleService(repository: ScheduleRepository): CourierScheduleService {
+export function createCourierScheduleService(repository: ScheduleRepository, courierService: CourierService): CourierScheduleService {
     return {
         async createSchedule(request: CreateCourierScheduleRequest): Promise<CreateCourierScheduleResponse> {
             const schedule = await repository.createSchedule(request);
@@ -71,6 +74,33 @@ export function createCourierScheduleService(repository: ScheduleRepository): Co
         },
         async deleteSchedule(id: number): Promise<void> {
             await repository.deleteSchedule(id);
+        },
+         async getCourierByUserId(userId: string): Promise<{id: number} | null> {
+            try {
+                const courier = await courierService.getCourierByUserId(userId);
+                if (!courier) return null;
+                
+                return {
+                    id: courier.id,
+                };
+            } catch (error) {
+                console.error(`Error getting courier for user ${userId}:`, error);
+                return null;
+            }
+        },
+        async getPersonalSchedules(query: GetSchedulesOptions): Promise<{ schedules: Schedule[]; total: number; limit?: number;  offset?: number }> {
+            if (!query.courier_id) {
+                throw new Error('courier_id is required for getPersonalSchedules');
+            }
+            
+            const { schedules, total } = await repository.getSchedules(query);
+            
+            return {
+                schedules: schedules.map(scheduleRowToSchedule),
+                total,
+                limit: query.limit,
+                offset: query.offset
+            };
         }
     };
 }

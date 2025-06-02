@@ -1,21 +1,25 @@
 import { Database } from '../../database';
 import { Kysely, sql } from 'kysely';
 import { PartnerFilter, PartnerListing } from './partner.schema';
-import { PartnerRow, UpdateablePartnerRow } from './partner.table';
+import { PartnerDataModel, PartnerRow, UpdateablePartnerRow } from './partner.table';
 import * as fs from 'fs/promises';
 import * as path from 'path';
 import * as crypto from 'crypto';
+import { AddressService } from '../address';
 
 export interface PartnerService {
     getPartners(filters: PartnerFilter): Promise<PartnerListing>;
     findPartnerByUserId(userId: string): Promise<any[]>;
     findPartnerById(id: number): Promise<PartnerRow | undefined>;
+    findPartnerByIdWithAddress(id: number): Promise<PartnerDataModel | undefined>;
     savePartnerLogo(partnerId: number, originalFilename: string, fileBuffer: Buffer): Promise<string>;
     savePartnerBanner(partnerId: number, originalFilename: string, fileBuffer: Buffer): Promise<string>;
     updatePartner(id: number, updateWith: UpdateablePartnerRow): Promise<void>;
+    updatePartnerAddress(id: number, address: {street?: string, postal_code?: string, city?: string, country?: string, address_detail?: string, latitude?: number, longitude?: number
+    }): Promise<void>;
 }
 
-export function createPartnerService(db: Kysely<Database>): PartnerService {
+export function createPartnerService(db: Kysely<Database>, addressService: AddressService): PartnerService {
     // Create uploads directory if it doesn't exist
     const uploadsDir = path.join(process.cwd(), 'public', 'uploads');
     fs.mkdir(uploadsDir, { recursive: true }).catch(console.error);
@@ -58,6 +62,14 @@ export function createPartnerService(db: Kysely<Database>): PartnerService {
                 baseQuery = baseQuery.where('c.id', 'in', cityIds);
             }
 
+            if (filters.sort) {
+                switch (filters.sort) {
+                    case 'newest':
+                        baseQuery = baseQuery.orderBy('pc.created_at', 'desc');
+                        break;
+                }
+            }
+
             // Handle open_now filter with timezone support
             if (filters.open_now) {
                 const timezone = filters.timezone || 'UTC';
@@ -88,7 +100,6 @@ export function createPartnerService(db: Kysely<Database>): PartnerService {
                     'p.max_delivery_distance_km',
                     'p.min_preparation_time_minutes',
                     'p.max_preparation_time_minutes',
-                    'p.status',
                     'p.phone_number',
                     'bt.name as business_type_name',
                     'a.address_detail',
@@ -96,6 +107,23 @@ export function createPartnerService(db: Kysely<Database>): PartnerService {
                     'c.name as city_name',
                     'co.name as country_name',
                     's.name as street_name',
+                    'pc.created_at',
+                    sql<string>`
+                    COALESCE(
+                        (
+                            SELECT jsonb_agg(
+                                jsonb_build_object(
+                                    'day', ph.day_of_week,
+                                    'opens_at', ph.opens_at,
+                                    'closes_at', ph.closes_at
+                                )
+                                ORDER BY ph.day_of_week
+                            )
+                            FROM partner_hour ph
+                            WHERE ph.partner_id = p.id
+                        ), '[]'::jsonb
+                    )
+                `.as('opening_hours')
                 ])
                 .offset(offset)
                 .limit(limit > 0 ? limit : null)
@@ -107,7 +135,7 @@ export function createPartnerService(db: Kysely<Database>): PartnerService {
                 logo_url: partner.logo_url,
                 banner_url: partner.banner_url,
                 phone_number: partner.phone_number,
-                status: partner.status,
+                created_at: partner.created_at,
                 delivery: {
                     fee: partner.delivery_fee,
                     min_order_value: partner.min_order_value,
@@ -116,17 +144,16 @@ export function createPartnerService(db: Kysely<Database>): PartnerService {
                     max_preparation_time_minutes: partner.max_preparation_time_minutes,
                 },
                 business_type: {
-                    id: partner.business_type_id || 0,
                     name: partner.business_type_name || ''
                 },
                 address: {
-                    id: partner.address_id || 0,
                     address_detail: partner.address_detail || undefined,
                     street: partner.street_name || '',
                     city: partner.city_name || '',
                     postal_code: partner.postal_code || '',
                     country: partner.country_name || '',
                 },
+                opening_hours: partner.opening_hours || [],
             }));
 
             return {
@@ -155,6 +182,27 @@ export function createPartnerService(db: Kysely<Database>): PartnerService {
                 .executeTakeFirst();
 
             return partner;
+        },
+        findPartnerByIdWithAddress: async function (id: number): Promise<PartnerDataModel | undefined> {
+            return await db
+                .selectFrom('partner as p')
+                .leftJoin('address as a', 'p.address_id', 'a.id')
+                .leftJoin('street as s', 'a.street_id', 's.id')
+                .leftJoin('postal_code as pc', 'a.postal_code_id', 'pc.id')
+                .leftJoin('city as c', 'pc.city_id', 'c.id')
+                .leftJoin('country as co', 'c.country_id', 'co.id')
+                .select([
+                    'p.id as partner_id',
+                    'p.name',
+                    'a.id as address_id',
+                    's.name as street',
+                    'a.address_detail',
+                    'pc.code as postal_code',
+                    'c.name as city',
+                    'co.name as country'
+                ])
+                .where('p.id', '=', id)
+                .executeTakeFirst();
         },
         savePartnerLogo: async function (partnerId: number, originalFilename: string, fileBuffer: Buffer): Promise<string> {
             const partner = await this.findPartnerById(partnerId);
@@ -217,6 +265,30 @@ export function createPartnerService(db: Kysely<Database>): PartnerService {
                 .set(updateWith)
                 .where('id', '=', id)
                 .execute();
+        },
+        updatePartnerAddress: async function(id: number, address: any): Promise<void> {
+            const partner = await this.findPartnerById(id);
+            if (!partner) {
+                throw new Error('Partner not found');
+            }
+
+            try {
+                const addressId = await addressService.createOrUpdateAddress(
+                    id.toString(),
+                    address,
+                    'partner'
+                );
+                
+                await db.updateTable('partner')
+                    .set({ address_id: addressId })
+                    .where('id', '=', id)
+                    .execute();
+                    
+                console.log(`Partner ${id} address updated successfully with address ID ${addressId}`);
+            } catch (error) {
+                console.error('Failed to update partner address:', error);
+                throw new Error('Failed to update partner address');
+            }
         }
     }
 }

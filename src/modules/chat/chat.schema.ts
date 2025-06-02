@@ -4,12 +4,19 @@ import { FastifySchema } from 'fastify';
 // Base schemas
 export const ChatBaseSchema = Type.Object({
   id: Type.Number(),
+  type: Type.Union([
+    Type.Literal('support'),
+    Type.Literal('courier'),
+    Type.Literal('general')
+  ], { default: 'general' }),
   created_at: Type.String({ format: 'date-time' }),
   updated_at: Type.String({ format: 'date-time' }),
 });
 
+
 export const ChatParticipantBaseSchema = Type.Object({
   user_id: Type.String(),
+  user_role: Type.String({ default: 'participant' }),
   joined_at: Type.String({ format: 'date-time' }),
 });
 
@@ -24,10 +31,23 @@ export const MessageBaseSchema = Type.Object({
 
 // Create chat schema
 export const CreateChatSchema = Type.Object({
-    participant_ids: Type.Optional(Type.Array(Type.String(), {
-      description: 'Array of user IDs to add to the chat (current user will be added automatically)'
-    }))
-  });
+  type: Type.Optional(Type.Union([
+    Type.Literal('support'),
+    Type.Literal('general'),
+    Type.Literal('order'),
+    Type.Literal('delivery')
+  ], { default: 'general' })),
+  participants: Type.Array(
+    Type.Object({
+      user_id: Type.String(),
+      user_role: Type.Optional(Type.String({ default: 'participant' }))
+    }), 
+    {
+      description: 'Array of participants to add to the chat (current user will be added automatically)',
+      minItems: 1,
+    }
+  )
+});
 
 // Response schemas
 export const ChatResponseSchema = Type.Intersect([
@@ -55,7 +75,11 @@ export const MessageListResponseSchema = Type.Object({
 });
 
 export const AddParticipantSchema = Type.Object({
-  user_id: Type.String({ description: 'User ID to add to the chat' })
+  user_id: Type.String({ description: 'User ID to add to the chat' }),
+  user_role: Type.Optional(Type.String({ 
+    default: 'participant',
+    description: 'Role of the user in this chat' 
+  }))
 });
 
 // Types
@@ -66,14 +90,14 @@ export type AddParticipantRequest = Static<typeof AddParticipantSchema>;
 
 // Fastify schemas
 export const createChatSchema: FastifySchema = {
-    summary: 'Create a new chat',
-    description: 'Create a new private chat. No request body needed for a self-chat.',
-    tags: ['Chat'],
-    // body: Type.Optional(CreateChatSchema), // Make entire body optional
-    response: {
-      201: ChatResponseSchema
-    }
-  };
+  summary: 'Create a new chat',
+  description: 'Create a new chat with at least one other participant',
+  tags: ['Chat'],
+  body: CreateChatSchema, // Make body required with required participants
+  response: {
+    201: ChatResponseSchema
+  }
+};
 
 export const listChatsSchema: FastifySchema = {
   summary: 'Get all user chats',

@@ -48,7 +48,29 @@ export const UserSchema = Type.Object(
     },
 );
 
+export const AddressSchema = Type.Object({
+    id: Type.Number(),
+    address_detail: Type.Optional(Type.String()),
+    latitude: Type.Optional(Type.Number()),
+    longitude: Type.Optional(Type.Number()),
+    street: Type.Optional(Type.String()),
+    postal_code: Type.Optional(Type.String()),
+    city: Type.Optional(Type.String()),
+    country: Type.Optional(Type.String()),
+    country_iso: Type.Optional(Type.String())
+});
+
 export type User = Static<typeof UserSchema>;
+export type Address = Static<typeof AddressSchema>;
+
+export const UserWithAddressSchema = Type.Intersect([
+    UserSchema,
+    Type.Object({
+        address: Type.Optional(AddressSchema)
+    })
+]);
+
+export type UserWithAddress = Static<typeof UserWithAddressSchema>;
 
 export const PaginationQuerySchema = Type.Object(
     {
@@ -140,3 +162,35 @@ export const getUserByIdSchema: FastifySchema = {
     summary: 'Get user by ID',
     security: [{ bearerAuth: [] }],
 };
+
+export const AddressUpdateSchema = Type.Object({
+    street: Type.Optional(Type.String()),
+    address_detail: Type.Optional(Type.String()),
+    postal_code: Type.Optional(Type.String()),
+    city: Type.Optional(Type.String()),
+    country: Type.Optional(Type.String()),
+    country_iso: Type.Optional(Type.String()),
+    latitude: Type.Optional(Type.Number()),
+    longitude: Type.Optional(Type.Number())
+});
+
+// Schema for user updates
+export const UserUpdateSchema = Type.Object({
+    first_name: Type.Optional(Type.String()),
+    last_name: Type.Optional(Type.String()),
+    email: Type.Optional(Type.String({ format: 'email' })),
+    phone_number: Type.Optional(Type.String()),
+    status: Type.Optional(Type.String()),
+    address: Type.Optional(AddressUpdateSchema)
+});
+
+export type AddressUpdate = Static<typeof AddressUpdateSchema>;
+export type UserUpdate = Static<typeof UserUpdateSchema>;
+
+// Schema for API response with updated user
+export const UserUpdateResponseSchema = Type.Object({
+    message: Type.String(),
+    user: UserWithAddressSchema
+});
+
+export type UserUpdateResponse = Static<typeof UserUpdateResponseSchema>;

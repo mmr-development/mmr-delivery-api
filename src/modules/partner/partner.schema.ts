@@ -297,6 +297,11 @@ export const PartnerFilterSchema = Type.Object({
   open_now: Type.Optional(Type.Boolean()),
   timezone: Type.Optional(Type.String({
     description: 'Timezone for open_now filter. Accepts IANA timezone names (e.g., "Europe/Copenhagen", "America/New_York"), common abbreviations (e.g., "UTC", "GMT"), or UTC offsets (e.g., "UTC+2", "-05:00")'
+  })),
+    sort: Type.Optional(Type.Union([
+    Type.Literal('newest'),       // Sort by created_at DESC
+  ], { 
+    description: 'Sorting option for the partner list' 
   }))
 });
 

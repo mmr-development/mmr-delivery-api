@@ -14,6 +14,23 @@ interface OutgoingMessage {
   [key: string]: any;
 }
 
+function sendMessage(socket: WebSocket, message: OutgoingMessage) {
+  if (socket.readyState === WebSocket.OPEN) {
+    socket.send(JSON.stringify(message));
+  }
+}
+
+function sendError(socket: WebSocket, errorMessage: string) {
+  sendMessage(socket, { type: 'error', error: errorMessage });
+}
+
+function addSenderFlag(message: any, userId: string) {
+  return {
+    ...message,
+    isSender: message.sender_id === userId || message.user_id === userId
+  };
+}
+
 const connections = new Map<number, Set<{ socket: WebSocket, userId: string }>>();
 
 function addConnection(chatId: number, socket: WebSocket, userId: string) {
@@ -36,17 +53,14 @@ function removeConnection(chatId: number, socket: WebSocket) {
 
 function broadcast(chatId: number, message: OutgoingMessage) {
   connections.get(chatId)?.forEach(client => {
-    if (client.socket.readyState === WebSocket.OPEN) {
-      // Add isSender flag if the message contains a userId
-      if (message.type === 'message' && message.message?.user_id) {
-        const customMessage = {
-          ...message,
-          isSender: message.message.user_id === client.userId
-        };
-        client.socket.send(JSON.stringify(customMessage));
-      } else {
-        client.socket.send(JSON.stringify(message));
-      }
+    if (message.type === 'message' && message.message) {
+      const customMessage = {
+        ...message,
+        message: addSenderFlag(message.message, client.userId)
+      };
+      sendMessage(client.socket, customMessage);
+    } else {
+      sendMessage(client.socket, message);
     }
   });
 }
@@ -71,44 +85,54 @@ function isValidMessageContent(content: any): content is MessageContent {
 }
 
 export const chatWsPlugin: (service: ChatService) => FastifyPluginAsync = (service) => async (fastify) => {
-  fastify.get<{ Params: { chat_id: number } }>('/ws/chat/:chat_id', { websocket: true, preHandler: [fastify.authenticate] }, (connection, req) => {
+  fastify.get<{ Params: { chat_id: number } }>('/ws/chat/:chat_id', { websocket: true, preHandler: [fastify.authenticate] }, async (connection, req) => {
     const socket = connection;
     const chatId = Number(req.params.chat_id);
     const userId = req.user.sub;
 
+    try {
+      const isParticipant = await service.isUserInChat(chatId, userId);
+      if (!isParticipant) {
+        sendError(socket, 'Not authorized to access this chat');
+        socket.close();
+        return;
+      }
+    } catch (error) {
+      fastify.log.error(error);
+      sendError(socket, 'Failed to verify chat access');
+      socket.close();
+      return;
+    }
+
     addConnection(chatId, socket, userId);
 
-    // Send chat history
     service.getMessages(chatId)
       .then(history => {
         const historyWithSenderFlag = {
           type: 'history',
-          messages: history.map(msg => ({
-            ...msg,
-            isSender: msg.sender_id === userId
-          }))
+          messages: history.map(msg => addSenderFlag(msg, userId))
         };
-        socket.send(JSON.stringify(historyWithSenderFlag));
+        sendMessage(socket, historyWithSenderFlag);
       })
-      .catch(() => socket.send(JSON.stringify({ type: 'error', error: 'Failed to load chat history' })));
+      .catch(() => sendError(socket, 'Failed to load chat history'));
 
     socket.on('message', async (raw) => {
       let msg: IncomingMessage;
       try {
         msg = JSON.parse(raw.toString());
       } catch {
-        socket.send(JSON.stringify({ type: 'error', error: 'Invalid JSON format' }));
+        sendError(socket, 'Invalid JSON format');
         return;
       }
 
       if (!msg.action || typeof msg.content === 'undefined') {
-        socket.send(JSON.stringify({ type: 'error', error: 'Missing action or content' }));
+        sendError(socket, 'Missing action or content');
         return;
       }
 
       if (msg.action === 'message') {
         if (!isValidMessageContent(msg.content)) {
-          socket.send(JSON.stringify({ type: 'error', error: 'Invalid message content' }));
+          sendError(socket, 'Invalid message content');
           return;
         }
 
@@ -116,11 +140,11 @@ export const chatWsPlugin: (service: ChatService) => FastifyPluginAsync = (servi
           const saved = await service.sendMessage(chatId, userId, msg.content);
           broadcast(chatId, { type: 'message', message: saved });
         } catch (err) {
-          console.error('Failed to send message:', err); // Add this line
-          socket.send(JSON.stringify({ type: 'error', error: 'Failed to send message' }));
+          console.error('Failed to send message:', err);
+          sendError(socket, 'Failed to send message');
         }
       } else {
-        socket.send(JSON.stringify({ type: 'error', error: 'Unknown action' }));
+        sendError(socket, 'Unknown action');
       }
     });
 

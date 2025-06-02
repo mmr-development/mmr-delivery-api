@@ -43,6 +43,8 @@ export const CustomerSchema = Type.Object({
     street: Type.String(),
     postal_code: Type.String(),
     address_detail: Type.Optional(Type.String()),
+    latitude: Type.Optional(Type.Number()),
+    longitude: Type.Optional(Type.Number()),
   }),
 });
 
@@ -111,6 +113,7 @@ export const createOrderSchema = {
 export const GetOrderResponseSchema = Type.Object({
   id: Type.Number(),
   partner_id: Type.Number(),
+  customer_id: Type.Optional(Type.Number()),
   customer: CustomerSchema,
   delivery_type: DeliveryTypeEnum,
   status: OrderStatusEnum,
@@ -131,6 +134,7 @@ export const GetOrderResponseSchema = Type.Object({
 export const getOrdersQuerySchema = Type.Object({
   partner_id: Type.Optional(Type.Number()),
   customer_id: Type.Optional(Type.Number()),
+  user_id: Type.Optional(Type.String()),
   offset: Type.Optional(Type.Number()),
   limit: Type.Optional(Type.Number())
 });
@@ -172,7 +176,7 @@ export const UpdateOrderParamsSchema = Type.Object({
 export const UpdateOrderResponseSchema = Type.Object({
   message: Type.String(),
   order: Type.Object({
-    id: Type.Number(),
+    // id: Type.Number(),
     partner_id: Type.Number(),
     status: OrderStatusEnum,
     delivery_type: DeliveryTypeEnum,

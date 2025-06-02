@@ -29,7 +29,6 @@ function removeSubscription(orderId: number, socket: WebSocket) {
     }
 }
 
-// This function will be called when an order status changes
 export function broadcastOrderStatusUpdate(orderId: number, status: string) {
     if (!orderSubscriptions.has(orderId)) return;
 
@@ -51,7 +50,6 @@ export function broadcastOrderStatusUpdate(orderId: number, status: string) {
 export const orderWebsocketPlugin: (orderService: OrderService) => FastifyPluginAsync =
     (orderService) => async (fastify) => {
 
-        // WebSocket endpoint for order status subscriptions
         fastify.get<{ Params: { order_id: number } }>(
             '/ws/orders/:order_id/status',
             { websocket: true },

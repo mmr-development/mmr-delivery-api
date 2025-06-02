@@ -16,6 +16,8 @@ export const PartnerInfoSchema = Type.Object({
   max_delivery_distance_km: Type.Number({ description: 'Maximum distance for delivery in kilometers' }),
   min_preparation_time_minutes: Type.Number({ description: 'Minimum preparation time for orders in minutes' }),
   max_preparation_time_minutes: Type.Number({ description: 'Maximum preparation time for orders in minutes' }),
+  smiley_image_url: Type.String({ description: 'URL to the partner\'s smiley image' }),
+  smiley_report_link: Type.String({ description: 'Link to the partner\'s smiley report' }),
 }, {
   description: 'Information about the partner restaurant'
 });
@@ -119,6 +121,12 @@ export const getCatalogSchema: FastifySchema = {
 export const getFullCatalogSchema: FastifySchema = {
   params: Type.Object({
     partner_id: Type.Number({ description: 'ID of the partner whose catalogs to retrieve' })
+  }),
+  querystring: Type.Object({
+    include_inactive: Type.Optional(Type.Boolean({
+      description: 'Whether to include inactive catalogs in the response',
+      default: false
+    }))
   }),
   response: {
     200: Type.Object({

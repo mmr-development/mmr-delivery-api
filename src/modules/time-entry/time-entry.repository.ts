@@ -4,7 +4,7 @@ import { TimeEntryRow } from './time-entry.types';
 
 export interface TimeEntryRepository {
   findActiveTimeEntry(employeeId: number): Promise<TimeEntryRow | undefined>;
-  createTimeEntry(courierId: number): Promise<TimeEntryRow>;
+  createTimeEntry(courierId: number, scheduleId?: number): Promise<TimeEntryRow>;
   closeTimeEntry(timeEntryId: number): Promise<TimeEntryRow>;
   findEmployeeByUserId(userId: string): Promise<{ id: number } | undefined>;
   findAllTimeEntries(courierId: string): Promise<TimeEntryRow[]>;
@@ -21,12 +21,13 @@ export const createTimeEntryRepository = (db: Kysely<Database>): TimeEntryReposi
         .executeTakeFirst();
     },
 
-    async createTimeEntry(courierId: number): Promise<TimeEntryRow> {
+    async createTimeEntry(courierId: number, scheduleId?: number): Promise<TimeEntryRow> {
       return await db
         .insertInto('time_entry')
         .values({
           courier_id: courierId,
           clock_in: new Date(),
+          schedule_id: scheduleId,
         })
         .returningAll()
         .executeTakeFirstOrThrow();

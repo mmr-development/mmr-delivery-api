@@ -1,11 +1,12 @@
 import { Kysely } from 'kysely';
 import { Database } from '../../database';
 import * as crypto from 'crypto';
+import { PasswordResetTokenRow } from './auth.tables';
 
 export interface PasswordResetTokenRepository {
   createResetToken(email: string, token: string, expiresAt: Date): Promise<void>;
   markExistingTokensAsUsed(email: string): Promise<void>;
-  findValidToken(email: string, token: string): Promise<any | undefined>;
+  findValidToken(token: string): Promise<PasswordResetTokenRow | undefined>;
   markTokenAsUsed(email: string, token: string): Promise<void>;
 }
 
@@ -27,10 +28,9 @@ export function createPasswordResetTokenRepository(db: Kysely<Database>): Passwo
         .where('email', '=', email)
         .execute();
     },
-    async findValidToken(email: string, token: string): Promise<any | undefined> {
+    async findValidToken(token: string): Promise<PasswordResetTokenRow | undefined> {
       return await db.selectFrom('password_reset_token')
         .selectAll()
-        .where('email', '=', email)
         .where('token', '=', token)
         .where('is_used', '=', false)
         .where('expires_at', '>', new Date())

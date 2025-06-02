@@ -73,7 +73,6 @@ export function createBusinessTypeService(db: Kysely<Database>): BusinessTypeSer
 
             return businessTypeRowToBusinessType(updatedBusinessType);
         },
-
         deleteBusinessType: async function (id: number): Promise<void> {
             await db
                 .deleteFrom('business_type')

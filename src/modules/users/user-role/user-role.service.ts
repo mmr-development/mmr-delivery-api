@@ -7,7 +7,9 @@ export interface UserRoleService {
     assignRoleToUser: (userId: string, roleId: string) => Promise<void>;
     assignRole: (userId: string, roleId: string) => Promise<void>; // Alias for backward compatibility
     getUserRoles: (userId: string, role: string) => Promise<UserRoleWithName>;
+    findUserRoleByUserId: (userId: string) => Promise<UserRoleRow | undefined>;
     hasRole: (userId: string, role: string) => Promise<boolean>;
+    removeAllUserRoles: (userId: string) => Promise<void>;
 }
 
 export function createUserRoleService(repository: UserRoleRepository): UserRoleService {
@@ -43,6 +45,22 @@ export function createUserRoleService(repository: UserRoleRepository): UserRoleS
                 return false;
             }
         },
+        removeAllUserRoles: async function (userId: string): Promise<void> {
+            try {
+                await repository.removeAllUserRoles(userId);
+            } catch (error) {
+                console.error('Error removing all user roles:', error);
+                throw error;
+            }
+        },
+        findUserRoleByUserId: async function (userId: string): Promise<UserRoleRow | undefined> {
+            try {
+                return await repository.findUserRoleByUserId(userId);
+            } catch (error) {
+                console.error('Error finding user role by userId:', error);
+                throw error;
+            }
+        }
     };
 }
 

@@ -1,93 +1,78 @@
 import { DeliveryRepository } from './delivery.repository';
 import { OrdersRepository } from '../orders/order.repository';
-import { CourierConnection, DeliveryRow, DeliveryStatus } from './delivery.types';
+import { DeliveryRow, DeliveryStatus } from './delivery.types';
 import { ControllerError } from '../../utils/errors';
+import { CourierConnectionManager } from './courier-connection-manager';
+import { calculateDistance } from '../../utils/geo-utils';
+import { EmailService } from '../email';
+import { DeliveryTokenService } from './delivery-token.service';
 
-// Define the DeliveryService interface
 export interface DeliveryService {
-  // Connection management methods
-  registerCourierConnection(courierId: string, socket: any): void;
-  handleCourierDisconnection(courierId: string): void;
-  isConnected(courierId: string): boolean;
-  getConnectedCouriers(): string[];
-  cleanStaleConnections(): void;
-  updateCourierLocation(courierId: string, latitude: number, longitude: number): Promise<void>;
-  notifyCourier(courierId: string, messageType: string, data: any): Promise<boolean>;
-
-  // Delivery management methods
-  findAvailableCourier(): Promise<string | null>;
-  assignDeliveryAutomatically(orderId: number): Promise<DeliveryRow | null>;
   updateDeliveryStatus(deliveryId: number, status: DeliveryStatus, courierId: string): Promise<DeliveryRow>;
-  getCourierDeliveries(courierId: string): Promise<DeliveryRow[]>;
-  getActiveCourierDeliveries(courierId: string): Promise<DeliveryRow[]>;
+  getActiveCourierDeliveries(courierId: string): Promise<{ deliveries: DetailedDelivery[] }>;
   getDeliveryByOrderId(orderId: number): Promise<DeliveryRow | undefined>;
   getAvailableCouriers(): Promise<{ courier_id: string, active_deliveries: number }[]>;
   forceAssignDelivery(orderId: number): Promise<DeliveryRow | null>;
-  checkAndAssignDelivery(orderId: number): Promise<DeliveryRow | null>;
+  getDeliveryById(deliveryId: number): Promise<DeliveryRow | undefined>;
   assignPendingDeliveries(): Promise<void>;
+  getPartnerCoordinatesByDeliveryId(deliveryId: number): Promise<{ latitude: number, longitude: number, logo_url: string } | null>;
+  uploadProofOfDeliveryImage(deliveryId: number, filename: string, fileBuffer: Buffer): Promise<DeliveryRow>;
 }
 
-// Create WebSocket manager as a separate concern
-const createCourierConnectionManager = () => {
-  // Keep track of connected couriers
-  const connectedCouriers = new Map<string, CourierConnection>();
+export interface DeliveryOrderItem {
+  item_name: string;
+  quantity: number;
+  price: number;
+  note: string | null;
+}
 
-  return {
-    registerConnection(courierId: string, socket: any): void {
-      console.log(`Courier ${courierId} connected to WebSocket`);
-      connectedCouriers.set(courierId, {
-        courierId,
-        socket,
-        lastActive: new Date()
-      });
-    },
+export interface DeliveryOrder {
+  id: number;
+  items: DeliveryOrderItem[];
+  status: string;
+  partner_id: number;
+  tip_amount: number;
+  total_amount: number;
+  requested_delivery_time: string;
+}
 
-    handleDisconnection(courierId: string): void {
-      console.log(`Courier ${courierId} disconnected from WebSocket`);
-      connectedCouriers.delete(courierId);
-    },
+export interface DeliveryPickup {
+  name: string;
+  latitude: number | null;
+  longitude: number | null;
+}
 
-    isConnected(courierId: string): boolean {
-      return connectedCouriers.has(courierId);
-    },
+export interface DeliveryDropoff {
+  lat: number | null;
+  lng: number | null;
+  phone: string | null;
+  address: string | null;
+  customer_name: string;
+}
 
-    getConnectedCourierIds(): string[] {
-      return Array.from(connectedCouriers.keys());
-    },
+export interface DetailedDelivery {
+  id: number;
+  order_id: number;
+  courier_id: string;
+  status: string;
+  assigned_at: Date | string;
+  picked_up_at: Date | string | null;
+  delivered_at: Date | string | null;
+  estimated_delivery_time: Date | string | null;
+  created_at: Date | string;
+  updated_at: Date | string;
+  order: DeliveryOrder;
+  pickup: DeliveryPickup;
+  delivery: DeliveryDropoff;
+}
 
-    updateLastActive(courierId: string): void {
-      const courier = connectedCouriers.get(courierId);
-      if (courier) {
-        courier.lastActive = new Date();
-      }
-    },
-
-    getConnection(courierId: string): CourierConnection | undefined {
-      return connectedCouriers.get(courierId);
-    },
-
-    cleanStaleConnections(): void {
-      const now = new Date();
-      // Find couriers who haven't been active in 3 minutes
-      for (const [courierId, connection] of connectedCouriers.entries()) {
-        const inactiveTime = now.getTime() - connection.lastActive.getTime();
-        if (inactiveTime > 3 * 60 * 1000 || connection.socket.readyState !== 1) {
-          console.log(`Removing stale connection for courier ${courierId}, inactive for ${inactiveTime / 1000}s`);
-          this.handleDisconnection(courierId);
-        }
-      }
-    }
-  };
-};
-
-// Create delivery service as a factory function
 export const createDeliveryService = (
   deliveryRepository: DeliveryRepository,
-  ordersRepository: OrdersRepository
+  ordersRepository: OrdersRepository,
+  connectionManager: CourierConnectionManager,
+  emailService: EmailService,
+  deliveryTokenService: DeliveryTokenService
 ): DeliveryService => {
-  const connectionManager = createCourierConnectionManager();
-
-  // Define valid status transitions - moved outside of functions for reuse and clarity
   const validTransitions: Record<DeliveryStatus, DeliveryStatus[]> = {
     'assigned': ['picked_up', 'failed', 'canceled'],
     'picked_up': ['in_transit', 'failed', 'canceled'],
@@ -97,13 +82,11 @@ export const createDeliveryService = (
     'canceled': []   // Terminal state
   };
 
-  // Helper function to check if status transition is valid
   const isValidStatusTransition = (currentStatus: DeliveryStatus, newStatus: DeliveryStatus): boolean => {
     return validTransitions[currentStatus]?.includes(newStatus) || false;
   };
 
   return {
-    // Connection management methods
     registerCourierConnection(courierId: string, socket: any): void {
       connectionManager.registerConnection(courierId, socket);
     },
@@ -141,7 +124,6 @@ export const createDeliveryService = (
         return false;
       }
 
-      // Verify socket is open (readyState 1 = OPEN)
       if (courier.socket.readyState !== 1) {
         console.log(`Courier ${courierId} socket not open (state: ${courier.socket.readyState}), removing stale connection`);
         connectionManager.handleDisconnection(courierId);
@@ -166,73 +148,8 @@ export const createDeliveryService = (
       }
     },
 
-    // Delivery management methods
-    async findAvailableCourier(): Promise<string | null> {
-      try {
-        const availableCouriers = await deliveryRepository.getAvailableCouriers();
-
-        const connectedAvailableCouriers = availableCouriers
-          .filter(c => connectionManager.isConnected(c.courier_id) && c.active_deliveries === 0);
-
-        if (connectedAvailableCouriers.length === 0) {
-          return null;
-        }
-
-        return connectedAvailableCouriers[0].courier_id;
-      } catch (error) {
-        console.error('Error finding available courier:', error);
-        return null;
-      }
-    },
-
-    async assignDeliveryAutomatically(orderId: number): Promise<DeliveryRow | null> {
-      try {
-        // Check if order exists and is eligible for delivery
-        const order = await ordersRepository.findOrderById(orderId);
-
-        if (!order || order.delivery_type !== 'delivery' ||
-          !['confirmed', 'preparing', 'ready'].includes(order.status)) {
-          return null;
-        }
-
-        // Check if delivery already exists
-        const existingDelivery = await deliveryRepository.findDeliveryByOrderId(orderId);
-        if (existingDelivery) {
-          return existingDelivery;
-        }
-
-        const courierId = await this.findAvailableCourier();
-        if (!courierId) {
-          return null;
-        }
-
-        // Create delivery
-        const estimatedDeliveryTime = order.requested_delivery_time ||
-          new Date(Date.now() + 30 * 60 * 1000);
-
-        console.log(` 213 Assigning delivery for order ${orderId} to courier ${courierId}`);
-        const delivery = await deliveryRepository.createDelivery({
-          order_id: orderId,
-          courier_id: courierId,
-          status: 'assigned',
-          picked_up_at: null,
-          delivered_at: null,
-          estimated_delivery_time: estimatedDeliveryTime
-        });
-
-        // Notify courier
-        await this.notifyCourier(courierId, 'delivery_assigned', {
-          delivery_id: delivery.id,
-          order_id: orderId,
-          status: delivery.status,
-          estimated_delivery_time: delivery.estimated_delivery_time
-        });
-
-        return delivery;
-      } catch (error) {
-        console.error(`Error assigning delivery for order ${orderId}:`, error);
-        return null;
-      }
+    async getDeliveryById(deliveryId: number): Promise<DeliveryRow | undefined> {
+      return deliveryRepository.findDeliveryById(deliveryId);
     },
 
     async updateDeliveryStatus(
@@ -258,10 +175,8 @@ export const createDeliveryService = (
       }
 
       try {
-        // Update delivery status
         const updatedDelivery = await deliveryRepository.directUpdateDeliveryStatus(deliveryId, status);
 
-        // Update order status based on delivery status
         const orderStatusMap = {
           'picked_up': 'dispatched',
           'delivered': 'delivered',
@@ -275,6 +190,23 @@ export const createDeliveryService = (
           });
         }
 
+        if (status === 'picked_up') {
+          const order = await ordersRepository.findOrderById(existingDelivery.order_id);
+          if (order && order.partner_id) {
+            const { broadcastPartnerMessage } = await import('../partner/partner.ws');
+            broadcastPartnerMessage(order.partner_id, {
+              type: 'order_picked_up',
+              data: {
+                orderId: order.id,
+                deliveryId: updatedDelivery.id,
+                status: status,
+                timestamp: new Date().toISOString()
+              }
+            });
+            console.log(`Notified partner ${order.partner_id} about pickup of order ${order.id}`);
+          }
+        }
+
         return updatedDelivery;
       } catch (error) {
         console.error(`Error updating delivery status for #${deliveryId}:`, error);
@@ -282,19 +214,13 @@ export const createDeliveryService = (
       }
     },
 
-    async getCourierDeliveries(courierId: string): Promise<DeliveryRow[]> {
-      return deliveryRepository.findDeliveriesByCourier(courierId);
-    },
-
-    async getActiveCourierDeliveries(courierId: string): Promise<DeliveryRow[]> {
+    async getActiveCourierDeliveries(courierId: string): Promise<{ deliveries: DetailedDelivery[] }> {
       try {
-        // Use the new detailed method instead of the basic one
-        return await deliveryRepository.transaction(async (trx) => {
-          return await trx.findDetailedDeliveriesByCourier(courierId);
-        });
+        const deliveries = await deliveryRepository.findDetailedDeliveriesByCourier(courierId);
+        return { deliveries };
       } catch (error) {
         console.error(`Error getting active deliveries for courier ${courierId}:`, error);
-        return [];
+        return { deliveries: [] };
       }
     },
 
@@ -330,17 +256,14 @@ export const createDeliveryService = (
 
           if (!idleCouriers.length) return null;
           const bestCourier = idleCouriers[0];
-          // Continue with standard assignment...
         } else {
           console.log(`Partner location found for order ${orderId}:`, partner);
-          // Get all available couriers
           console.log(`Idle couriers for order ${orderId}:`, idleCouriers);
           if (!idleCouriers.length) {
             console.log(`No idle couriers available for order ${orderId}`);
             return null;
           }
 
-          // Create a tracking structure for courier locations
           const courierLocationPromises: Array<{
             courierId: string,
             locationPromise: Promise<{ lat: number, lng: number } | null>
@@ -373,12 +296,11 @@ export const createDeliveryService = (
                       resolve(null);
                       return true; // Remove listener
                     }
-                    // For other message types, keep the listener active
                     console.log(`Ignoring non-location message from courier ${courier.courier_id}: ${data.type}`);
                     return false;
                   } catch (e) {
                     console.error(`Error parsing message from courier ${courier.courier_id}:`, e);
-                    return false; // Keep listener on error
+                    return false;
                   }
                 };
 
@@ -434,7 +356,7 @@ export const createDeliveryService = (
           await racePromise;
 
           // Calculate distances and find closest courier
-          let bestCourier = idleCouriers[0]; // Default to first courier
+          let bestCourier = idleCouriers[0];
           let shortestDistance = Infinity;
 
           for (const { courierId, locationPromise } of courierLocationPromises) {
@@ -442,8 +364,7 @@ export const createDeliveryService = (
             const location = await locationPromise;
             console.log(`Waiting for locationPromise for courier ${location}`);
             if (location) {
-              // Calculate distance using Haversine formula
-              const distance = this.calculateDistance(
+              const distance = calculateDistance(
                 partner.latitude,
                 partner.longitude,
                 location.lat,
@@ -482,46 +403,25 @@ export const createDeliveryService = (
 
             const activeDeliveries = await this.getActiveCourierDeliveries(bestCourier.courier_id);
 
-            // Try to notify courier if connected
             if (this.isConnected(bestCourier.courier_id)) {
               await this.notifyCourier(bestCourier.courier_id, 'delivery_assigned', {
                 delivery_id: delivery.id,
                 order_id: orderId,
                 status: delivery.status,
                 estimated_delivery_time: delivery.estimated_delivery_time,
-                    deliveries: activeDeliveries.map((d: any) => ({
-      id: d.id,
-      order_id: d.order_id,
-      status: d.status,
-      assigned_at: d.assigned_at.toISOString(),
-      picked_up_at: d.picked_up_at?.toISOString(),
-      delivered_at: d.delivered_at?.toISOString(),
-      estimated_delivery_time: d.estimated_delivery_time?.toISOString(),
-      // Include enhanced data
-      pickup: d.pickup ? {
-        name: d.pickup.name,
-        lat: d.pickup.latitude,
-        lng: d.pickup.longitude
-      } : null,
-      delivery: d.delivery ? {
-        customer_name: d.delivery.customer_name,
-        phone: d.delivery.phone,
-        address: d.delivery.address,
-        lat: d.delivery.lat,
-        lng: d.delivery.lng
-      } : null,
-      order: d.order ? {
-        total_amount: d.order.total_amount,
-        tip_amount: d.order.tip_amount,
-        items: d.order.items?.map((item: any) => ({
-          item_name: item.item_name,
-          quantity: item.quantity,
-          price: item.price,
-          note: item.note
-        }))
-      } : null
-    }))
+                deliveries: activeDeliveries.deliveries
               });
+            }
+
+            const customerEmail = await ordersRepository.getOrderCustomerEmail(orderId);
+            
+            if (customerEmail) {
+              const trackingToken = deliveryTokenService.generateToken(delivery.id, orderId);
+              
+              await emailService.sendOrderTrackingEmail(customerEmail, orderId, trackingToken);
+
+              
+              console.log(`Sent tracking email for order #${orderId} to ${customerEmail}`);
             }
 
             return delivery;
@@ -534,37 +434,36 @@ export const createDeliveryService = (
         return null;
       }
     },
+    async getPartnerCoordinatesByDeliveryId(deliveryId: number): Promise<{ latitude: number, longitude: number, logo_url: string } | null> {
+      try {
+        const delivery = await deliveryRepository.findDeliveryById(deliveryId);
+        if (!delivery) {
+          console.log(`Delivery ${deliveryId} not found`);
+          return null;
+        }
 
-    // Helper function to calculate distance using Haversine formula
-    // Add this function to the delivery service object
-    calculateDistance(lat1: number, lng1: number, lat2: number, lng2: number): number {
-      const R = 6371; // Radius of the earth in km
-      const dLat = (lat2 - lat1) * Math.PI / 180;
-      const dLng = (lng2 - lng1) * Math.PI / 180;
-      const a =
-        Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-        Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
-        Math.sin(dLng / 2) * Math.sin(dLng / 2);
-      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-      const distance = R * c; // Distance in km
-      return distance;
-    },
+        const order = await ordersRepository.findOrderById(delivery.order_id);
+        if (!order || !order.partner_id) {
+          console.log(`Order for delivery ${deliveryId} not found or has no partner`);
+          return null;
+        }
 
-    async checkAndAssignDelivery(orderId: number): Promise<DeliveryRow | null> {
-      const existingDelivery = await deliveryRepository.findDeliveryByOrderId(orderId);
-      if (existingDelivery) {
-        return existingDelivery;
-      }
+        const partner = await ordersRepository.getPartnerById(order.partner_id);
+        if (!partner || !partner.latitude || !partner.longitude) {
+          console.log(`Partner location for delivery ${deliveryId} not found`);
+          return null;
+        }
 
-      const order = await ordersRepository.findOrderById(orderId);
-      if (!order || order.delivery_type !== 'delivery' ||
-        !['confirmed', 'preparing', 'ready'].includes(order.status)) {
+        return {
+          latitude: partner.latitude,
+          longitude: partner.longitude,
+          logo_url: partner.logo_url || ''
+        };
+      } catch (error) {
+        console.error(`Error getting partner coordinates for delivery ${deliveryId}:`, error);
         return null;
       }
-
-      return await this.forceAssignDelivery(orderId);
     },
-
     async assignPendingDeliveries(): Promise<void> {
       try {
         const orders = await deliveryRepository.findOrdersReadyForDelivery(5);
@@ -574,6 +473,42 @@ export const createDeliveryService = (
         }
       } catch (error) {
         console.error('Error in assignPendingDeliveries:', error);
+      }
+    },
+    async uploadProofOfDeliveryImage(deliveryId: number, filename: string, fileBuffer: Buffer): Promise<DeliveryRow> {
+      try {
+        // Verify the courier is assigned to this delivery
+        const delivery = await deliveryRepository.findDeliveryById(deliveryId);
+
+        if (!delivery) {
+          throw Error(`Delivery with ID ${deliveryId} not found`);
+        }
+
+        // Handle file storage
+        const path = require('path');
+        const fs = require('fs');
+
+        const timestamp = Date.now();
+        const extension = filename.split('.').pop()?.toLowerCase();
+        const safeFilename = `delivery_${deliveryId}_${timestamp}.${extension}`;
+
+        const uploadDir = path.join(process.cwd(), 'public', 'uploads', 'delivery-proofs');
+
+        // Ensure directory exists
+        if (!fs.existsSync(uploadDir)) {
+          fs.mkdirSync(uploadDir, { recursive: true });
+        }
+
+        const filePath = path.join(uploadDir, safeFilename);
+
+        await fs.promises.writeFile(filePath, fileBuffer);
+
+        const imageUrl = `/uploads/delivery-proofs/${safeFilename}`;
+
+        await deliveryRepository.updateProofOfDelivery(deliveryId, imageUrl);
+      } catch (error) {
+        console.error(`Error uploading proof of delivery for #${deliveryId}:`, error);
+        throw error;
       }
     }
   };

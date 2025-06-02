@@ -3,52 +3,74 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Your Order Confirmation</title>
+  <title>Din Ordrebekræftelse</title>
 </head>
 <body style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 0; background-color: #f9f9f9;">
   <div style="background-color: #ffffff; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); margin: 20px; overflow: hidden;">
     <!-- Header -->
     <div style="background-color: #27ae60; padding: 20px; text-align: center;">
-      <h1 style="color: #ffffff; margin: 0; font-weight: 300; font-size: 24px;">Order Confirmation</h1>
+      <h1 style="color: #ffffff; margin: 0; font-weight: 300; font-size: 24px;">Ordrebekræftelse</h1>
     </div>
     
     <!-- Content -->
     <div style="padding: 30px;">
-      <p style="color: #555; font-size: 16px;">Hello {{customerName}},</p>
-      
-      <p style="color: #555; font-size: 16px;">Thank you for your order with {{appName}}! Your order has been confirmed and is being prepared.</p>
+      <p style="color: #555; font-size: 16px;">Hej {{customerName}},</p>
+      <p style="color: #555; font-size: 16px;">Tak for din bestilling hos {{appName}}! Din ordre er bekræftet og er under forberedelse.</p>
 
       <!-- Order Summary Box -->
       <div style="background-color: #f8f9fa; border-left: 4px solid #27ae60; padding: 15px; margin: 20px 0;">
-        <h3 style="color: #2c3e50; margin-top: 0; font-size: 16px;">Order Summary</h3>
+        <h3 style="color: #2c3e50; margin-top: 0; font-size: 16px;">Ordreoversigt</h3>
         <table style="width: 100%; border-collapse: collapse; color: #555; font-size: 14px;">
           <tr>
-            <td style="padding: 5px 0; width: 150px;"><strong>Order Number:</strong></td>
+            <td style="padding: 5px 0; width: 150px;"><strong>Ordrenummer:</strong></td>
             <td style="padding: 5px 0;">#{{orderId}}</td>
           </tr>
           <tr>
-            <td style="padding: 5px 0;"><strong>Order Date:</strong></td>
+            <td style="padding: 5px 0;"><strong>Ordredato:</strong></td>
             <td style="padding: 5px 0;">{{orderDate}}</td>
           </tr>
           <tr>
             <td style="padding: 5px 0;"><strong>Restaurant:</strong></td>
             <td style="padding: 5px 0;">{{partnerName}}</td>
           </tr>
+          {{#partnerPhone}}
           <tr>
-            <td style="padding: 5px 0;"><strong>Order Type:</strong></td>
-            <td style="padding: 5px 0;">{{#isDelivery}}Delivery{{/isDelivery}}{{^isDelivery}}Pickup{{/isDelivery}}</td>
+            <td style="padding: 5px 0;"><strong>Restaurant Telefon:</strong></td>
+            <td style="padding: 5px 0;">{{partnerPhone}}</td>
+          </tr>
+          {{/partnerPhone}}
+          <tr>
+            <td style="padding: 5px 0;"><strong>Ordretype:</strong></td>
+            <td style="padding: 5px 0;">{{#isDelivery}}Levering{{/isDelivery}}{{^isDelivery}}Afhentning{{/isDelivery}}</td>
           </tr>
           <tr>
-            <td style="padding: 5px 0;"><strong>Payment Method:</strong></td>
+            <td style="padding: 5px 0;"><strong>Betalingsmetode:</strong></td>
             <td style="padding: 5px 0;">{{paymentMethod}}</td>
           </tr>
+          <tr>
+            <td style="padding: 5px 0;"><strong>Kunde Email:</strong></td>
+            <td style="padding: 5px 0;">{{customerEmail}}</td>
+          </tr>
+          <tr>
+            <td style="padding: 5px 0;"><strong>Kunde Telefon:</strong></td>
+            <td style="padding: 5px 0;">{{customerPhone}}</td>
+          </tr>
+          <tr>
+            <td style="padding: 5px 0;"><strong>Adresse:</strong></td>
+            <td style="padding: 5px 0;">{{street}} {{addressDetail}}, {{postalCode}} {{city}}, {{country}}</td>
+          </tr>
+          {{#note}}
+          <tr>
+            <td style="padding: 5px 0;"><strong>Bemærkning:</strong></td>
+            <td style="padding: 5px 0;">{{note}}</td>
+          </tr>
+          {{/note}}
         </table>
       </div>
       
       <!-- Order Items -->
       <div style="margin-top: 30px;">
-        <h3 style="color: #2c3e50; font-weight: 500; font-size: 18px; border-bottom: 1px solid #e0e0e0; padding-bottom: 10px;">Order Details</h3>
-        
+        <h3 style="color: #2c3e50; font-weight: 500; font-size: 18px; border-bottom: 1px solid #e0e0e0; padding-bottom: 10px;">Ordredetaljer</h3>
         <table style="width: 100%; border-collapse: collapse;">
           <tbody>
             {{#items}}
@@ -74,13 +96,13 @@
           </tr>
           {{#deliveryFee}}
           <tr>
-            <td style="padding: 8px 0; color: #555; font-size: 14px;">Delivery Fee</td>
+            <td style="padding: 8px 0; color: #555; font-size: 14px;">Leveringsgebyr</td>
             <td style="padding: 8px 0; text-align: right; color: #555; font-size: 14px;">{{deliveryFee}}</td>
           </tr>
           {{/deliveryFee}}
           {{#tip}}
           <tr>
-            <td style="padding: 8px 0; color: #555; font-size: 14px;">Tip</td>
+            <td style="padding: 8px 0; color: #555; font-size: 14px;">Drikkepenge</td>
             <td style="padding: 8px 0; text-align: right; color: #555; font-size: 14px;">{{tip}}</td>
           </tr>
           {{/tip}}
@@ -94,31 +116,31 @@
       <!-- Delivery/Pickup Information -->
       {{#isDelivery}}
       <div style="margin-top: 20px; padding: 15px; background-color: #f5f5f5; border-radius: 8px;">
-        <h3 style="color: #2c3e50; margin-top: 0; font-size: 16px;">Delivery Information</h3>
-        <p style="color: #555; font-size: 14px; margin: 5px 0;">Address: {{deliveryAddress}}</p>
-        <p style="color: #555; font-size: 14px; margin: 5px 0;">Estimated delivery: {{estimatedTime}}</p>
+        <h3 style="color: #2c3e50; margin-top: 0; font-size: 16px;">Leveringsinformation</h3>
+        <p style="color: #555; font-size: 14px; margin: 5px 0;">Adresse: {{deliveryAddress}}</p>
+        <p style="color: #555; font-size: 14px; margin: 5px 0;">Estimeret levering: {{estimatedTime}}</p>
       </div>
       {{/isDelivery}}
       
       {{^isDelivery}}
       <div style="margin-top: 20px; padding: 15px; background-color: #f5f5f5; border-radius: 8px;">
-        <h3 style="color: #2c3e50; margin-top: 0; font-size: 16px;">Pickup Information</h3>
+        <h3 style="color: #2c3e50; margin-top: 0; font-size: 16px;">Afhentningsinformation</h3>
         <p style="color: #555; font-size: 14px; margin: 5px 0;">Restaurant: {{partnerName}}</p>
-        <p style="color: #555; font-size: 14px; margin: 5px 0;">Address: {{partnerAddress}}</p>
-        {{#estimatedTime}}<p style="color: #555; font-size: 14px; margin: 5px 0;">Ready for pickup at: {{estimatedTime}}</p>{{/estimatedTime}}
+        <p style="color: #555; font-size: 14px; margin: 5px 0;">Adresse: {{partnerAddress}}</p>
+        {{#estimatedTime}}<p style="color: #555; font-size: 14px; margin: 5px 0;">Klar til afhentning kl.: {{estimatedTime}}</p>{{/estimatedTime}}
       </div>
       {{/isDelivery}}
       
       <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #e0e0e0; text-align: center;">
-        <p style="color: #555; font-size: 14px;">Thank you for your order!</p>
-        <p style="color: #777; font-size: 14px;">For any assistance, contact us at <a href="mailto:{{supportEmail}}" style="color: #27ae60; text-decoration: none;">{{supportEmail}}</a></p>
+        <p style="color: #555; font-size: 14px;">Tak for din bestilling!</p>
+        <p style="color: #777; font-size: 14px;">For hjælp, kontakt os på <a href="mailto:{{supportEmail}}" style="color: #27ae60; text-decoration: none;">{{supportEmail}}</a></p>
       </div>
     </div>
     
     <!-- Footer -->
     <div style="background-color: #f5f5f5; padding: 20px; text-align: center; color: #999; font-size: 13px;">
       <p style="margin: 0;">&copy; {{currentYear}} {{appName}}</p>
-      <p style="margin: 5px 0 0 0; font-size: 12px;">This receipt was sent to {{customerEmail}}</p>
+      <p style="margin: 5px 0 0 0; font-size: 12px;">Denne kvittering er sendt til {{customerEmail}}</p>
     </div>
   </div>
 </body>

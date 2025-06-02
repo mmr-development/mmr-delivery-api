@@ -12,6 +12,8 @@ export interface PartnerTable {
     min_preparation_time_minutes: number | string | null;
     max_preparation_time_minutes: number | string | null;
     max_delivery_distance_km: number | string | null;
+    smiley_image_url: string | null;
+    smiley_report_link: string | null;
     delivery_method_id: number;
     business_type_id: number;
     user_id: string;
@@ -21,6 +23,17 @@ export interface PartnerTable {
 export type PartnerRow = Selectable<PartnerTable>;
 export type InsertablePartnerRow = Insertable<PartnerTable>;
 export type UpdateablePartnerRow = Updateable<PartnerTable>;
+
+export interface PartnerDataModel {
+  id: number;
+  name: string;
+  status: string | null;
+  address_id: number;
+  street: string;
+  city: string;
+  postal_code: string;
+  address_detail: string | null;
+}
 
 export interface PartnerWithRelationsRow {
     id: number;

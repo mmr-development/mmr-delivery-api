@@ -13,6 +13,8 @@ interface CustomerData {
     street: string;
     postal_code: string;
     address_detail?: string;
+    latitude?: number;
+    longitude?: number;
   };
 }
 

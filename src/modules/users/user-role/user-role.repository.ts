@@ -6,7 +6,9 @@ export interface UserRoleRepository {
     assignRoleToUser(userId: string, roleName: string): Promise<void>;
     getUserRole(userId: string, roleName: string): Promise<UserRoleWithName | undefined>;
     findUserRole(userId: string, roleName: string): Promise<UserRoleWithName | undefined>;
+    findUserRoleByUserId(userId: string): Promise<UserRoleRow | undefined>;
     hasUserRole(userId: string, roleName: string): Promise<boolean>;
+    removeAllUserRoles(userId: string): Promise<void>;
 }
 
 export function createUserRoleRepository(db: Kysely<Database>): UserRoleRepository {
@@ -38,8 +40,6 @@ export function createUserRoleRepository(db: Kysely<Database>): UserRoleReposito
 
             return userRole;
         },
-        
-        // Method to find a user role - similar to getUserRole but kept for clarity
         findUserRole: async function (userId: string, roleName: string): Promise<UserRoleWithName | undefined> {
             return await db
                 .selectFrom('user_role')
@@ -50,8 +50,6 @@ export function createUserRoleRepository(db: Kysely<Database>): UserRoleReposito
                 .where('role.name', '=', roleName)
                 .executeTakeFirst();
         },
-        
-        // Method to check if user has a specific role - returns boolean
         hasUserRole: async function (userId: string, roleName: string): Promise<boolean> {
             const count = await db
                 .selectFrom('user_role')
@@ -62,6 +60,19 @@ export function createUserRoleRepository(db: Kysely<Database>): UserRoleReposito
                 .executeTakeFirst();
                 
             return count ? Number(count.count) > 0 : false;
+        },
+        removeAllUserRoles: async function (userId: string): Promise<void> {
+            await db
+                .deleteFrom('user_role')
+                .where('user_id', '=', userId)
+                .execute();
+        },
+        findUserRoleByUserId: async function (userId: string): Promise<UserRoleRow | undefined> {
+            return await db
+                .selectFrom('user_role')
+                .where('user_id', '=', userId)
+                .selectAll()
+                .executeTakeFirst();
         }
     };
 }

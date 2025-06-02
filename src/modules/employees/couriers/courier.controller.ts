@@ -163,4 +163,38 @@ export const courierController: FastifyPluginAsync<CourierControllerOptions> = a
             return reply.code(204).send();
         }
     );
+
+    server.get('/couriers/colleagues/', {
+        schema: {
+            tags: ['Couriers'],
+            security: [{ bearerAuth: [] }],
+            response: {
+                200: {
+                    type: 'object',
+                    properties: {
+                        couriers: {
+                            type: 'array',
+                            items: {
+                                type: 'object',
+                                properties: {
+                                    id: { type: 'number' },
+                                    user_uuid: { type: 'string' },
+                                    first_name: { type: 'string' },
+                                    last_name: { type: 'string' },
+                                    role: { type: 'string' }
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+        },
+        preHandler: [server.authenticate, server.guard.role('courier', 'admin')]
+    }, async (request, reply) => {
+        const currentUserId = request.user.sub;
+        const colleagues = await courierService.getColleagues(currentUserId);
+        return reply.code(200).send({
+            couriers: colleagues
+        });
+    })
 };
